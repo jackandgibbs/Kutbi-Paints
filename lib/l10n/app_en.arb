@@ -1,0 +1,15 @@
+{
+  "@@locale": "en",
+  "appTitle": "Kutbi Paints",
+  "welcomeBack": "Welcome Back,",
+  "myPerformance": "My Performance",
+  "placeOrder": "Place Order",
+  "offers": "Offers",
+  "myLedger": "My Ledger",
+  "rewards": "Rewards",
+  "scanCoupon": "Scan Coupon",
+  "painterDashboard": "Painter Dashboard",
+  "adminDashboard": "Admin Dashboard",
+  "totalOutstanding": "Total Outstanding",
+  "totalRevenue": "Total Revenue"
+}

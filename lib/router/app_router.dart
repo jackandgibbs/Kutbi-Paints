@@ -1,0 +1,538 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../providers/auth_provider.dart';
+import '../features/auth/splash_screen.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/register_screen.dart';
+import '../features/auth/pending_approval_screen.dart';
+import '../features/painter/painter_home_screen.dart';
+import '../features/painter/brand_dashboard_screen.dart';
+import '../features/painter/birla_opus_screen.dart';
+import '../features/painter/berger_screen.dart';
+import '../features/painter/asian_paints_screen.dart';
+import '../features/painter/tools_screen.dart';
+import '../features/painter/order_form_screen.dart';
+import '../features/painter/order_item_screen.dart';
+import '../features/painter/order_history_screen.dart';
+import '../features/painter/order_detail_screen.dart';
+import '../features/painter/painter_profile_screen.dart';
+import '../features/painter/painter_scanner_screen.dart';
+import '../features/painter/painter_rewards_screen.dart';
+import '../features/painter/painter_rewards_history_screen.dart';
+import '../features/painter/painter_analytics_screen.dart';
+import '../features/painter/painter_ledger_screen.dart';
+import '../features/painter/pending_debt_screen.dart';
+import '../features/painter/painter_bills_screen.dart';
+import '../features/painter/painter_udhaari_screen.dart';
+import '../features/painter/cart_screen.dart';
+import '../features/shared/order_chat_screen.dart';
+import '../features/shared/global_chat_list_screen.dart';
+import '../features/admin/admin_main_screen.dart';
+import '../features/admin/admin_pending_bills_screen.dart';
+import '../features/admin/admin_secret_login_screen.dart';
+import '../features/admin/admin_dashboard_screen.dart';
+import '../features/admin/admin_qr_generator_screen.dart';
+import '../features/admin/admin_promotions_screen.dart';
+import '../features/admin/admin_reward_points_screen.dart';
+import '../features/admin/user_management_screen.dart';
+import '../features/admin/add_painter_screen.dart';
+import '../features/admin/inventory_screen.dart';
+import '../features/admin/add_product_screen.dart';
+import '../features/admin/order_management_screen.dart';
+import '../features/admin/order_detail_admin_screen.dart';
+import '../features/admin/user_activity_screen.dart';
+import '../features/admin/goal_setting_screen.dart';
+import '../features/admin/admin_analytics_screen.dart';
+import '../features/admin/scanner_screen.dart';
+import '../features/admin/admin_payments_screen.dart';
+import '../features/admin/admin_settings_screen.dart';
+import '../features/admin/pending_bills_screen.dart';
+import '../features/admin/generated_bills_screen.dart';
+import '../features/admin/admin_pin_reset_screen.dart';
+import '../features/admin/stock_management_screen.dart';
+import '../features/admin/points_history_screen.dart';
+import '../features/admin/deleted_qrs_screen.dart';
+
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authProvider);
+
+  // Smooth fade + subtle scale transition for all pages
+  CustomTransitionPage<void> _fadeTransitionPage({
+    required Widget child,
+    required GoRouterState state,
+  }) {
+    return CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 220),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        final fadeIn = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOut,
+        );
+        final fadeOut = CurvedAnimation(
+          parent: secondaryAnimation,
+          curve: Curves.easeIn,
+        );
+        return FadeTransition(
+          opacity: fadeIn,
+          child: FadeTransition(
+            opacity: Tween<double>(begin: 1.0, end: 0.85).animate(fadeOut),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  return GoRouter(
+    initialLocation: '/splash',
+    redirect: (context, state) {
+      final isLoggedIn = authState.isLoggedIn;
+      final isSplashRoute = state.matchedLocation == '/splash';
+      final isLoginRoute = state.matchedLocation == '/login';
+      final isRegisterRoute = state.matchedLocation == '/register';
+      final isPendingRoute = state.matchedLocation == '/pending-approval';
+      final isSecretAdminRoute = state.matchedLocation == '/admin-secret-login';
+      final isAdminDashboardRoute = state.matchedLocation == '/admin-dashboard';
+
+      // Let splash screen handle its own navigation
+      if (isSplashRoute) return null;
+
+      if (!isLoggedIn &&
+          !isLoginRoute &&
+          !isRegisterRoute &&
+          !isPendingRoute &&
+          !isSecretAdminRoute &&
+          !isAdminDashboardRoute) {
+        return '/login';
+      }
+
+      if (isLoggedIn && authState.error == 'pending_approval') {
+        return '/pending-approval';
+      }
+
+      if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
+        if (authState.isAdmin) return '/admin';
+        return '/painter';
+      }
+
+      // Specialized brand flows
+      if (state.matchedLocation == '/painter/brand/Birla Opus') {
+        return '/painter/birla-opus';
+      }
+      if (state.matchedLocation == '/painter/brand/Berger') {
+        return '/painter/berger';
+      }
+      if (state.matchedLocation == '/painter/brand/Asian Paints') {
+        return '/painter/asian-paints';
+      }
+      if (state.matchedLocation == '/painter/brand/Tools') {
+        return '/painter/tools';
+      }
+
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/pending-approval',
+        builder: (context, state) => const PendingApprovalScreen(),
+      ),
+
+      // ─── Painter Routes ──────────────────────────────
+      GoRoute(
+        path: '/painter',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterHomeScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/brand/:brand',
+        pageBuilder: (context, state) {
+          final brand = Uri.decodeComponent(state.pathParameters['brand']!);
+          return _fadeTransitionPage(
+            state: state,
+            child: BrandDashboardScreen(brand: brand),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/painter/birla-opus',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const BirlaOpusScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/berger',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const BergerScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/asian-paints',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AsianPaintsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/tools',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const ToolsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/order/:brand',
+        pageBuilder: (context, state) {
+          final brand = Uri.decodeComponent(state.pathParameters['brand']!);
+          final productId = state.uri.queryParameters['productId'];
+          final size = state.uri.queryParameters['size'];
+          final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
+          return _fadeTransitionPage(
+            state: state,
+            child: OrderFormScreen(
+              brand: brand,
+              initialProductId: productId,
+              initialSize: size,
+              initialQty: qty,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/painter/order-item/:productId',
+        pageBuilder: (context, state) {
+          final productId = state.pathParameters['productId']!;
+          final size = state.uri.queryParameters['size'];
+          final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
+          final canCustomize = state.uri.queryParameters['canCustomize'] != 'false';
+          return _fadeTransitionPage(
+            state: state,
+            child: OrderItemScreen(
+              productId: productId,
+              initialSize: size,
+              initialQty: qty,
+              canCustomize: canCustomize,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/painter/orders',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const OrderHistoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/order-detail/:orderId',
+        pageBuilder: (context, state) {
+          final orderId = state.pathParameters['orderId']!;
+          return _fadeTransitionPage(
+            state: state,
+            child: OrderDetailScreen(orderId: orderId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/chats',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const GlobalChatListScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/order/:orderId/chat',
+        pageBuilder: (context, state) {
+          final orderId = state.pathParameters['orderId']!;
+          return _fadeTransitionPage(
+            state: state,
+            child: OrderChatScreen(orderId: orderId),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/painter/profile',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterProfileScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/scanner',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterScannerScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/rewards',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterRewardsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/rewards/history',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterRewardsHistoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/analytics',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterAnalyticsScreen(),
+        ),
+      ),
+      // GoRoute(
+      //   path: '/painter/cart',
+      //   pageBuilder: (context, state) => _fadeTransitionPage(
+      //     state: state,
+      //     child: const CartScreen(),
+      //   ),
+      // ),
+
+      GoRoute(
+        path: '/painter/ledger',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterLedgerScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/pending-debt',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PendingDebtScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/bills',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterBillsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/udhaari',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterUdhaariScreen(),
+        ),
+      ),
+
+      // ─── Admin Routes ────────────────────────────────
+      GoRoute(
+        path: '/admin',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminMainScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const UserManagementScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/add-painter',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AddPainterScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/inventory',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const InventoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/add-product',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AddProductScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/edit-product/:productId',
+        pageBuilder: (context, state) {
+          final productId = state.pathParameters['productId']!;
+          return _fadeTransitionPage(
+            state: state,
+            child: AddProductScreen(productId: productId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/orders',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const OrderManagementScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/order-detail/:orderId',
+        pageBuilder: (context, state) {
+          final orderId = state.pathParameters['orderId']!;
+          return _fadeTransitionPage(
+            state: state,
+            child: OrderDetailAdminScreen(orderId: orderId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/user-activity/:painterId',
+        pageBuilder: (context, state) {
+          final painterId = state.pathParameters['painterId']!;
+          return _fadeTransitionPage(
+            state: state,
+            child: UserActivityScreen(painterId: painterId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/admin/goals',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const GoalSettingScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/analytics',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminAnalyticsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/reward-points',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminRewardPointsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/payments',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminPaymentsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/scanner',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const ScannerScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/promotions',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminPromotionsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/settings',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminSettingsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/qr-generator',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminQRGeneratorScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/deleted-qrs',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const DeletedQRsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/pending-bills',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminPendingBillsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/generated-bills',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const GeneratedBillsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/stock-management',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const StockManagementScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/points-history',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PointsHistoryScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/reset-pin',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminPinResetScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin-secret-login',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminSecretLoginScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin-dashboard',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminDashboardScreen(),
+        ),
+      ),
+    ],
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: Text('Page not found: ${state.matchedLocation}'),
+      ),
+    ),
+  );
+});

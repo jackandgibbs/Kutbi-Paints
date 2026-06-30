@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kutbi Paints – Professional Wholesale App</title>
+<meta name="description" content="Download the Kutbi Paints app — the professional wholesale marketplace for painters and contractors. 500+ premium shades, bulk pricing, and same-day dispatch."/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════ */
+:root {
+  --red:      #C8391B;
+  --red-lt:   #FDF1EE;
+  --red-mid:  #E8503A;
+  --navy:     #0F1F35;
+  --navy-lt:  #1B3356;
+  --gold:     #C9952A;
+  --sand:     #F5EFE6;
+  --stone:    #E8DDD0;
+  --white:    #FFFFFF;
+  --off-white:#FAFAF8;
+  --grey-lt:  #F0EDE8;
+  --grey:     #9E9485;
+  --text:     #1A1209;
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 40px;
+  --shadow-sm: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-md: 0 8px 32px rgba(0,0,0,0.08);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.12);
+  --t: 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--off-white);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* ═══════════════════════════════════════════
+   PAINT STROKE DECORATIVE SVG PATTERN
+═══════════════════════════════════════════ */
+.stroke-bg {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;
+}
+
+/* ═══════════════════════════════════════════
+   NAVBAR
+═══════════════════════════════════════════ */
+header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+nav {
+  max-width: 1280px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 76px;
+}
+.logo img { height: 42px; }
+.nav-menu { display: flex; gap: 36px; list-style: none; }
+.nav-menu a {
+  text-decoration: none; color: var(--text); font-size: 14px; font-weight: 500; letter-spacing: 0.01em;
+  position: relative; padding-bottom: 4px;
+  transition: color var(--t);
+}
+.nav-menu a::after {
+  content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 1.5px;
+  background: var(--red); transition: width var(--t);
+}
+.nav-menu a:hover { color: var(--red); }
+.nav-menu a:hover::after { width: 100%; }
+
+.btn-cta {
+  background: var(--red); color: var(--white);
+  padding: 11px 26px; border-radius: 50px;
+  font-size: 14px; font-weight: 600; letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: background var(--t), transform var(--t), box-shadow var(--t);
+  box-shadow: 0 4px 16px rgba(200,57,27,0.25);
+}
+.btn-cta:hover { background: var(--red-mid); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,57,27,0.35); }
+
+/* HAMBURGER for mobile */
+.hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; }
+.hamburger span { display: block; width: 24px; height: 2px; background: var(--text); border-radius: 2px; transition: var(--t); }
+
+/* ═══════════════════════════════════════════
+   HERO — SPLIT LAYOUT WITH PAINT SWATCH CLUSTER
+═══════════════════════════════════════════ */
+.hero {
+  min-height: 100svh;
+  display: grid; grid-template-columns: 1fr 1fr;
+  align-items: center;
+  position: relative;
+  background: var(--white);
+  overflow: hidden;
+  padding-top: 76px;
+}
+
+/* LEFT */
+.hero-text {
+  padding: 80px 60px 80px 8vw;
+  position: relative; z-index: 2;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--red-lt); color: var(--red);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 6px 16px; border-radius: 50px; margin-bottom: 32px;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--red);
+  animation: blink 2s ease infinite;
+}
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+.hero-h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(3.2rem, 5.5vw, 5.5rem);
+  font-weight: 700; line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin-bottom: 28px;
+  color: var(--text);
+}
+.hero-h1 em { font-style: italic; color: var(--red); }
+
+.hero-p {
+  font-size: 17px; color: var(--grey); font-weight: 400; line-height: 1.75;
+  max-width: 460px; margin-bottom: 48px;
+}
+
+.hero-actions { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+.btn-dl {
+  display: inline-flex; align-items: center; gap: 14px;
+  background: var(--navy); color: var(--white);
+  padding: 16px 32px; border-radius: 14px;
+  text-decoration: none; font-weight: 600; font-size: 15px;
+  transition: all var(--t);
+  box-shadow: 0 8px 28px rgba(15,31,53,0.25);
+}
+.btn-dl:hover { background: var(--navy-lt); transform: translateY(-3px); box-shadow: 0 14px 36px rgba(15,31,53,0.3); }
+.btn-dl-icon { display: flex; align-items: center; justify-content: center; }
+.btn-dl small { display: block; font-size: 10px; letter-spacing: 0.05em; opacity: 0.65; text-transform: uppercase; }
+.btn-dl strong { display: block; font-size: 15px; }
+
+.link-ghost {
+  font-size: 14px; color: var(--grey); text-decoration: none; font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+  transition: color var(--t);
+}
+.link-ghost:hover { color: var(--text); }
+
+/* RIGHT — PAINT SWATCH MOSAIC */
+.hero-visual {
+  height: 100%; min-height: 100svh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 2fr 1fr 1fr;
+  gap: 3px; background: var(--stone);
+  overflow: hidden;
+}
+.swatch-tile {
+  position: relative; overflow: hidden;
+  transition: transform 0.4s ease;
+}
+.swatch-tile:hover { transform: scale(1.02); z-index: 1; }
+.swatch-tile span {
+  position: absolute; bottom: 16px; left: 16px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.7); text-transform: uppercase;
+}
+.tile-a { background: #C8391B; grid-column: 1; grid-row: 1 / 3; }
+.tile-b { background: #E8A456; grid-column: 2; grid-row: 1; }
+.tile-c { background: #2D5A8B; grid-column: 2; grid-row: 2; }
+.tile-d { background: #4B7C5A; grid-column: 1; grid-row: 3; }
+.tile-e { background: #0F1F35; grid-column: 2; grid-row: 3; }
+
+/* ═══════════════════════════════════════════
+   BRAND STRIP + CREDENTIALS
+═══════════════════════════════════════════ */
+.social-proof {
+  padding: 48px 8vw;
+  display: flex; align-items: center; gap: 40px; flex-wrap: wrap;
+  background: var(--off-white);
+  border-top: 1px solid var(--stone);
+  border-bottom: 1px solid var(--stone);
+}
+.sp-label { font-size: 12px; font-weight: 600; color: var(--grey); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.sp-divider { width: 1px; height: 28px; background: var(--stone); flex-shrink: 0; }
+.brands { display: flex; gap: 36px; align-items: center; flex-wrap: wrap; }
+.brand-chip {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  padding: 6px 16px; border: 1.5px solid var(--stone);
+  border-radius: 50px;
+  background: var(--white);
+  letter-spacing: 0.01em;
+}
+
+/* ═══════════════════════════════════════════
+   BENTO FEATURE GRID
+═══════════════════════════════════════════ */
+.bento-section {
+  padding: 120px 8vw;
+  background: var(--white);
+}
+.bento-header { max-width: 680px; margin-bottom: 72px; }
+.section-kicker {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--red); margin-bottom: 16px;
+}
+.bento-header h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.4rem, 4vw, 3.8rem);
+  font-weight: 700; line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 16px;
+}
+.bento-card {
+  background: var(--off-white); border-radius: var(--radius-lg);
+  padding: 48px 40px; position: relative; overflow: hidden;
+  transition: transform var(--t), box-shadow var(--t);
+  border: 1px solid rgba(0,0,0,0.04);
+}
+.bento-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+.bento-card.accent { background: var(--navy); color: var(--white); }
+.bento-card.accent .bento-card-sub { color: rgba(255,255,255,0.55); }
+.bento-card.accent .bento-bg-num { color: rgba(255,255,255,0.04); }
+.bento-card.tall { grid-row: 1 / 3; }
+.bento-card.red { background: var(--red); color: var(--white); }
+.bento-card.red .bento-card-sub { color: rgba(255,255,255,0.65); }
+.bento-card.sand { background: var(--sand); }
+.bento-card.stone { background: var(--stone); }
+
+.bento-bg-num {
+  position: absolute; bottom: -20px; right: -10px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 140px; font-weight: 700; line-height: 1;
+  color: rgba(0,0,0,0.04); pointer-events: none;
+}
+.bento-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: rgba(0,0,0,0.06); margin-bottom: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.bento-card.accent .bento-icon { background: rgba(255,255,255,0.1); }
+.bento-card.red .bento-icon { background: rgba(255,255,255,0.15); }
+.bento-card-title { font-size: 20px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
+.bento-card-sub { font-size: 14px; color: var(--grey); line-height: 1.7; font-weight: 400; }
+.bento-stat { font-family: 'Cormorant Garamond', serif; font-size: 64px; font-weight: 700; line-height: 1; margin-bottom: 8px; }
+
+/* ═══════════════════════════════════════════
+   PROCESS — HORIZONTAL FLOW
+═══════════════════════════════════════════ */
+.process-section { padding: 120px 8vw; background: var(--sand); }
+.process-section h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.2rem, 3.5vw, 3.4rem);
+  font-weight: 700; margin-bottom: 72px;
+}
+.process-track { display: grid; grid-template-columns: repeat(4, 1fr); gap: 40px; position: relative; }
+.process-track::before {
+  content: ''; position: absolute; top: 26px; left: 30px; right: 30px; height: 1px;
+  background: linear-gradient(90deg, var(--red), var(--navy));
+  z-index: 0;
+}
+.process-step { position: relative; z-index: 1; }
+.step-circle {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--white); border: 2px solid var(--stone);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px; font-weight: 700; color: var(--red);
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-sm);
+}
+.step-h { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.step-p { font-size: 13px; color: var(--grey); line-height: 1.65; }
+
+/* ═══════════════════════════════════════════
+   DOWNLOAD CTA — RICH DARK PANEL
+═══════════════════════════════════════════ */
+.cta-section {
+  margin: 0 8vw 120px;
+  background: var(--navy);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  display: grid; grid-template-columns: 1fr 1fr;
+  position: relative;
+}
+.cta-left {
+  padding: 100px 64px;
+  position: relative; z-index: 2;
+}
+.cta-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 24px; }
+.cta-h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2.4rem, 4vw, 4rem);
+  font-weight: 700; line-height: 1.1;
+  color: var(--white); margin-bottom: 24px;
+}
+.cta-p { font-size: 16px; color: rgba(255,255,255,0.55); line-height: 1.75; margin-bottom: 52px; }
+
+.cta-btns { display: flex; flex-direction: column; gap: 14px; }
+.btn-white {
+  display: flex; align-items: center; gap: 16px;
+  background: var(--white); color: var(--navy);
+  padding: 18px 28px; border-radius: 14px;
+  text-decoration: none; font-weight: 700; font-size: 15px;
+  width: fit-content;
+  transition: all var(--t);
+}
+.btn-white:hover { background: var(--sand); transform: translateX(4px); }
+.btn-white svg { flex-shrink: 0; }
+.btn-white-label small { display: block; font-size: 10px; opacity: 0.5; text-transform: uppercase; letter-spacing: 0.05em; }
+.btn-white-label strong { display: block; font-size: 15px; }
+
+.btn-ghost-white {
+  display: flex; align-items: center; gap: 8px;
+  color: rgba(255,255,255,0.45); text-decoration: none;
+  font-size: 13px; font-weight: 500; width: fit-content;
+  transition: color var(--t);
+}
+.btn-ghost-white:hover { color: var(--white); }
+
+/* Right side — color palette visual */
+.cta-right {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px;
+  opacity: 0.7;
+}
+
+.cs-1 { background: #C8391B; }
+.cs-2 { background: #E8A456; }
+.cs-3 { background: #2D5A8B; }
+.cs-4 { background: #4B7C5A; }
+
+/* Background orb */
+.cta-orb {
+  position: absolute; width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(200,57,27,0.15) 0%, transparent 70%);
+  border-radius: 50%; top: -150px; left: -150px; pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   COLOR PALETTE SHOWCASE
+═══════════════════════════════════════════ */
+.palette-section { padding: 0 8vw 120px; }
+.palette-section .section-kicker { margin-bottom: 16px; }
+.palette-section h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 3vw, 3rem);
+  font-weight: 700; margin-bottom: 48px;
+}
+.palette-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.swatch-pill {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--white); border: 1px solid var(--stone);
+  padding: 10px 20px 10px 10px; border-radius: 50px;
+  font-size: 13px; font-weight: 600;
+  transition: all var(--t);
+}
+.swatch-pill:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.swatch-dot { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; }
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+footer {
+  background: var(--text); color: var(--white);
+  padding: 80px 8vw 40px;
+}
+.footer-top {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 60px; flex-wrap: wrap; gap: 40px;
+}
+.footer-logo img { height: 36px; filter: brightness(0) invert(1); }
+.footer-tagline { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 12px; }
+.footer-links { display: flex; gap: 32px; }
+.footer-links a { font-size: 13px; color: rgba(255,255,255,0.45); text-decoration: none; transition: color var(--t); }
+.footer-links a:hover { color: var(--white); }
+.footer-bottom { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+.footer-copy { font-size: 12px; color: rgba(255,255,255,0.3); }
+
+/* paint stripe */
+.paint-stripe {
+  height: 6px;
+  background: linear-gradient(90deg, var(--red) 0%, #E8A456 25%, #2D5A8B 50%, #4B7C5A 75%, var(--navy) 100%);
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .bento-grid { grid-template-columns: 1fr 1fr; }
+  .bento-card.tall { grid-row: auto; }
+  .process-track { grid-template-columns: 1fr 1fr; gap: 40px; }
+  .process-track::before { display: none; }
+  .cta-section { grid-template-columns: 1fr; }
+  .cta-right { display: none; }
+}
+
+@media (max-width: 768px) {
+  nav { padding: 0 24px; }
+  .hamburger { display: flex; }
+  .nav-menu { display: none; }
+  .btn-cta { padding: 9px 20px; font-size: 13px; }
+
+  .hero { grid-template-columns: 1fr; padding-top: 76px; }
+  .hero-text { padding: 60px 24px; text-align: center; }
+  .hero-p { margin-inline: auto; }
+  .hero-actions { justify-content: center; }
+  .hero-badge { margin-inline: auto; }
+  .hero-visual { min-height: 320px; grid-template-rows: 1fr 1fr; }
+
+  .social-proof { justify-content: center; text-align: center; }
+  .sp-divider { display: none; }
+  .sp-label { width: 100%; text-align: center; }
+  .brands { justify-content: center; }
+
+  .bento-section, .process-section, .palette-section { padding: 80px 24px; }
+  .bento-grid { grid-template-columns: 1fr; }
+  .bento-card { padding: 36px 28px; }
+  .process-track { grid-template-columns: 1fr; }
+
+  .cta-section { margin: 0 24px 80px; border-radius: var(--radius-lg); }
+  .cta-left { padding: 60px 36px; }
+  .cta-h2 { font-size: 2.2rem; }
+
+  footer { padding: 60px 24px 32px; }
+  .footer-top { flex-direction: column; }
+  .footer-links { flex-direction: column; gap: 16px; }
+  .footer-bottom { flex-direction: column; text-align: center; }
+
+  .palette-row { gap: 10px; }
+}
+
+@media (max-width: 480px) {
+  .hero-h1 { font-size: 2.8rem; }
+  .hero-actions { flex-direction: column; align-items: center; }
+  .btn-dl { width: 100%; justify-content: center; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="paint-stripe"></div>
+
+<!-- ── NAVBAR ── -->
+<header>
+  <nav>
+    <div class="logo">
+      <img src="assets/logo.png" alt="Kutbi Paints"/>
+    </div>
+    <ul class="nav-menu">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#process">Process</a></li>
+      <li><a href="#download">Download</a></li>
+    </ul>
+    <div class="hamburger" id="hamburgerBtn" onclick="this.classList.toggle('open')" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </div>
+    <a href="#download" class="btn-cta">Download App</a>
+  </nav>
+</header>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-text">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Official Android Release
+    </div>
+    <h1 class="hero-h1">
+      The Craft of<br>
+      <em>Professional</em><br>
+      Procurement.
+    </h1>
+    <p class="hero-p">
+      Kutbi Paints brings 500+ premium shades and wholesale pricing directly to your fingertips — built exclusively for painters and contractors who demand the best.
+    </p>
+    <div class="hero-actions">
+      <a href="dl/KutbiPaints_ARM64.apk" class="btn-dl" download>
+        <div class="btn-dl-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <div>
+          <small>ARM 64-bit · Latest</small>
+          <strong>Download APK</strong>
+        </div>
+      </a>
+      <a href="#process" class="link-ghost">
+        How it works
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- PAINT SWATCH MOSAIC -->
+  <div class="hero-visual">
+    <div class="swatch-tile tile-a"><span>Kutbi Red</span></div>
+    <div class="swatch-tile tile-b"><span>Amber Glow</span></div>
+    <div class="swatch-tile tile-c"><span>Marine Blue</span></div>
+    <div class="swatch-tile tile-d"><span>Forest Deep</span></div>
+    <div class="swatch-tile tile-e"><span>Midnight</span></div>
+  </div>
+</section>
+
+<!-- ── BRAND STRIP ── -->
+<div class="social-proof">
+  <span class="sp-label">Stock from</span>
+  <div class="sp-divider"></div>
+  <div class="brands">
+    <span class="brand-chip">Asian Paints</span>
+    <span class="brand-chip">Berger</span>
+    <span class="brand-chip">Birla Opus</span>
+  </div>
+</div>
+
+<!-- ── BENTO FEATURES ── -->
+<section class="bento-section" id="features">
+  <div class="bento-header">
+    <p class="section-kicker">Why Kutbi Paints</p>
+    <h2>Everything a professional contractor needs.</h2>
+  </div>
+  <div class="bento-grid">
+
+    <!-- TALL ACCENT CARD -->
+    <div class="bento-card accent tall">
+      <div class="bento-bg-num">1</div>
+      <div class="bento-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+          <polyline points="10 9 9 9 8 9"/>
+        </svg>
+      </div>
+      <h3 class="bento-card-title">Instant wholesale quotes</h3>
+      <p class="bento-card-sub">Get live pricing on bulk orders — no calls, no waiting. The app auto-applies tiered contractor discounts based on your order volume.</p>
+    </div>
+
+    <!-- STAT CARD — Red -->
+    <div class="bento-card red">
+      <div class="bento-bg-num">500</div>
+      <div class="bento-stat">500+</div>
+      <h3 class="bento-card-title">Premium Shades</h3>
+      <p class="bento-card-sub">Every finish, every brand. Searchable in seconds.</p>
+    </div>
+
+    <!-- FEATURE CARD -->
+    <div class="bento-card sand">
+      <div class="bento-bg-num">2</div>
+      <div class="bento-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+      <h3 class="bento-card-title">Same-Day Dispatch</h3>
+      <p class="bento-card-sub">Orders placed before 2 PM leave the warehouse the same day. Live tracking directly in the app.</p>
+    </div>
+
+    <div class="bento-card stone">
+      <div class="bento-bg-num">3</div>
+      <div class="bento-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <h3 class="bento-card-title">Contractor-Grade Security</h3>
+      <p class="bento-card-sub">Verified business accounts with order history, invoicing, and dedicated account managers.</p>
+    </div>
+
+    <!-- STAT CARD -->
+    <div class="bento-card" style="background:var(--gold); color:white;">
+      <div class="bento-bg-num" style="color:rgba(255,255,255,0.08);">12k</div>
+      <div class="bento-stat" style="color:white;">12K+</div>
+      <h3 class="bento-card-title" style="color:white;">Active Painters</h3>
+      <p class="bento-card-sub" style="color:rgba(255,255,255,0.7);">Trusted by contractors across India every day.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── PALETTE SHOWCASE ── -->
+<section class="palette-section">
+  <p class="section-kicker">Color Range</p>
+  <h2>Browse a world of professional shades.</h2>
+  <div class="palette-row">
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#C8391B;"></div> Kutbi Red
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#E8A456;"></div> Amber Glow
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#2D5A8B;"></div> Marine Blue
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#4B7C5A;"></div> Forest Deep
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#0F1F35;"></div> Midnight Navy
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#E8DCCC;"></div> Warm Plaster
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#6B3F2A;"></div> Raw Sienna
+    </div>
+    <div class="swatch-pill">
+      <div class="swatch-dot" style="background:#BEC9B0;"></div> Sage Mist
+    </div>
+  </div>
+</section>
+
+<!-- ── PROCESS ── -->
+<section class="process-section" id="process">
+  <p class="section-kicker">How it works</p>
+  <h2>Four steps. Zero friction.</h2>
+  <div class="process-track">
+    <div class="process-step">
+      <div class="step-circle">I</div>
+      <h4 class="step-h">Install the App</h4>
+      <p class="step-p">Download the APK directly — no account needed to browse. Install in under 30 seconds.</p>
+    </div>
+    <div class="process-step">
+      <div class="step-circle">II</div>
+      <h4 class="step-h">Browse & Select</h4>
+      <p class="step-p">Filter 500+ shades by brand, finish, or type. Live stock status on every product.</p>
+    </div>
+    <div class="process-step">
+      <div class="step-circle">III</div>
+      <h4 class="step-h">Place Your Order</h4>
+      <p class="step-p">Add to cart, choose quantity, and confirm. Contractor discounts are applied instantly at checkout.</p>
+    </div>
+    <div class="process-step">
+      <div class="step-circle">IV</div>
+      <h4 class="step-h">Site Delivery</h4>
+      <p class="step-p">We deliver straight to your worksite. Track your shipment live, every step of the way.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── DOWNLOAD CTA ── -->
+<section class="cta-section" id="download">
+  <div class="cta-orb"></div>
+  <div class="cta-left">
+    <p class="cta-eyebrow">Ready to get started?</p>
+    <h2 class="cta-h2">Your site. Your shades.<br>Delivered.</h2>
+    <p class="cta-p">Join 12,000+ professional painters and contractors who rely on Kutbi Paints for every project. No middlemen, no delays.</p>
+    <div class="cta-btns">
+      <a href="dl/KutbiPaints_ARM64.apk" class="btn-white" download>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <div class="btn-white-label">
+          <small>Recommended · ARM 64-bit</small>
+          <strong>Download APK</strong>
+        </div>
+      </a>
+      <a href="dl/KutbiPaints_ARM32.apk" class="btn-ghost-white" download>
+        ARM 32-bit build (legacy devices)
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </a>
+    </div>
+  </div>
+  <div class="cta-right">
+    <div class="cta-swatch cs-1"></div>
+    <div class="cta-swatch cs-2"></div>
+    <div class="cta-swatch cs-3"></div>
+    <div class="cta-swatch cs-4"></div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-top">
+    <div>
+      <div class="footer-logo"><img src="assets/logo.png" alt="Kutbi Paints"/></div>
+      <p class="footer-tagline">Professional Wholesale Paints · Est. India</p>
+    </div>
+    <div class="footer-links">
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact Us</a>
+      <a href="#download">Download App</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p class="footer-copy">© 2026 Kutbi Paints Private Limited. All rights reserved.</p>
+    <p class="footer-copy">Designed for Painters. Built for Scale.</p>
+  </div>
+</footer>
+
+</body>
+</html>

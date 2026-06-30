@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "870772899568",
+    "project_id": "kutbi-paints",
+    "storage_bucket": "kutbi-paints.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:870772899568:android:ab01d11e635eed9825cc35",
+        "android_client_info": {
+          "package_name": "com.example.kutbi_paints"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "870772899568-av1vlbcml9kp8jp63bjp1s8kccn739ro.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTrDuE723BLetD9gaW4bsUnGgAdsqKzq8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "870772899568-av1vlbcml9kp8jp63bjp1s8kccn739ro.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

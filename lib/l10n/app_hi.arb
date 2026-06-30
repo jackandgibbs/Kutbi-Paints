@@ -1,0 +1,15 @@
+{
+  "@@locale": "hi",
+  "appTitle": "कुतबी पेंट्स",
+  "welcomeBack": "नमस्ते,",
+  "myPerformance": "मेरा प्रदर्शन",
+  "placeOrder": "ऑर्डर दें",
+  "offers": "ऑफर",
+  "myLedger": "मेरा लेजर",
+  "rewards": "पुरस्कार",
+  "scanCoupon": "कूपन स्कैन करें",
+  "painterDashboard": "पेंटर डैशबोर्ड",
+  "adminDashboard": "एडमिन डैशबोर्ड",
+  "totalOutstanding": "कुल बकाया",
+  "totalRevenue": "कुल राजस्व"
+}

@@ -1,0 +1,4 @@
+﻿lib/features/admin/admin_home_screen.dart forms are balanced.
+lib/features/admin/inventory_screen.dart forms are balanced.
+lib/features/admin/order_management_screen.dart forms are balanced.
+lib/features/painter/painter_home_screen.dart forms are balanced.

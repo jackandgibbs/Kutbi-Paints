@@ -1,0 +1,171 @@
+﻿Analyzing kutbi_paints...                                       
+
+   info - Don't invoke 'print' in production code - analyze.dart:5:3 - avoid_print
+   info - Don't invoke 'print' in production code - analyze.dart:6:3 - avoid_print
+warning - Unused import: '../constants/app_colors.dart' - lib\core\widgets\glass_brand_card.dart:4:8 - unused_import
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\add_painter_screen.dart:158:29 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\add_painter_screen.dart:159:29 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\add_painter_screen.dart:169:29 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\admin\add_painter_screen.dart:170:29 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\admin\add_product_screen.dart:190:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\admin\add_product_screen.dart:192:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\admin\add_product_screen.dart:194:9 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\admin\add_product_screen.dart:196:9 - curly_braces_in_flow_control_structures
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\add_product_screen.dart:322:17 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\add_product_screen.dart:347:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\add_product_screen.dart:399:21 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\add_product_screen.dart:473:19 - deprecated_member_use
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\admin_analytics_screen.dart:416:9 - duplicate_named_argument
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:160:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:165:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:170:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:182:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:186:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:191:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:228:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_bills_tab.dart:246:49 - deprecated_member_use
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor or activeTrackColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\admin\admin_dashboard_screen.dart:180:25 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:142:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:147:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:152:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:164:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:168:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:173:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:210:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_goals_tab.dart:228:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:163:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:169:42 - deprecated_member_use
+   info - The local variable '_a' starts with an underscore - lib\features\admin\admin_home_screen.dart:305:51 - no_leading_underscores_for_local_identifiers
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:329:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:335:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:337:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:345:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:454:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:459:44 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:540:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:545:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:559:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:640:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:691:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_home_screen.dart:696:44 - deprecated_member_use
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\admin_inventory_tab.dart:132:13 - duplicate_named_argument
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_inventory_tab.dart:141:36 - deprecated_member_use
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\admin_inventory_tab.dart:143:19 - duplicate_named_argument
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_inventory_tab.dart:176:60 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_inventory_tab.dart:194:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:122:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:125:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:130:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:147:56 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:183:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:186:55 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_main_screen.dart:223:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_payments_screen.dart:358:68 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_payments_screen.dart:477:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_payments_screen.dart:574:62 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_payments_screen.dart:664:64 - deprecated_member_use
+warning - Dead code - lib\features\admin\admin_payments_screen.dart:680:80 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\features\admin\admin_payments_screen.dart:680:83 - dead_null_aware_expression
+warning - The left operand can't be null, so the right operand is never executed - lib\features\admin\admin_payments_screen.dart:697:53 - dead_null_aware_expression
+warning - The '!' will have no effect because the receiver can't be null - lib\features\admin\admin_payments_screen.dart:698:65 - unnecessary_non_null_assertion
+   info - Don't use 'BuildContext's across async gaps - lib\features\admin\admin_pin_reset_screen.dart:51:28 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\admin_promotions_screen.dart:82:21 - deprecated_member_use
+   info - The 'child' argument should be last in widget constructor invocations - lib\features\admin\admin_promotions_screen.dart:239:9 - sort_child_properties_last
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_settings_screen.dart:160:51 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_settings_screen.dart:160:55 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_settings_screen.dart:199:76 - deprecated_member_use
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\admin_support_tab.dart:82:23 - duplicate_named_argument
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:95:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:96:57 - deprecated_member_use
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\admin_support_tab.dart:100:29 - duplicate_named_argument
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:109:66 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:148:64 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:212:31 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:214:50 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:218:95 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:225:49 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\admin\admin_support_tab.dart:240:31 - unnecessary_underscores
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\admin_support_tab.dart:272:11 - duplicate_named_argument
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\admin_support_tab.dart:280:48 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\admin\goal_setting_screen.dart:336:23 - deprecated_member_use
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\admin\order_detail_admin_screen.dart:84:17 - duplicate_named_argument
+warning - The value of the local variable 'color' isn't used - lib\features\admin\order_detail_admin_screen.dart:370:21 - unused_local_variable
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\order_detail_admin_screen.dart:456:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\order_detail_admin_screen.dart:458:56 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\admin\order_detail_admin_screen.dart:503:107 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\admin\order_detail_admin_screen.dart:504:42 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\admin\order_detail_admin_screen.dart:505:35 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps - lib\features\admin\order_detail_admin_screen.dart:688:28 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\admin\order_detail_admin_screen.dart:690:28 - use_build_context_synchronously
+warning - Unused import: 'dart:math' - lib\features\admin\widgets\glass_order_stack.dart:1:8 - unused_import
+   info - 'scale' is deprecated and shouldn't be used. Use scaleByVector3, scaleByVector4, or scaleByDouble instead - lib\features\admin\widgets\glass_order_stack.dart:87:25 - deprecated_member_use
+   info - 'translate' is deprecated and shouldn't be used. Use translateByVector3, translateByVector4, or translateByDouble instead - lib\features\admin\widgets\glass_order_stack.dart:89:25 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\admin\widgets\glass_order_stack.dart:105:41 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\admin\widgets\glass_order_stack.dart:225:41 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\force_update_screen.dart:39:37 - deprecated_member_use
+warning - The declaration '_handleGoogleLogin' isn't referenced - lib\features\auth\login_screen.dart:78:16 - unused_element
+warning - Unused import: '../../providers/auth_provider.dart' - lib\features\painter\brand_dashboard_screen.dart:6:8 - unused_import
+warning - The value of the local variable 'color' isn't used - lib\features\painter\order_detail_screen.dart:302:21 - unused_local_variable
+   info - Statements in an if should be enclosed in a block - lib\features\painter\order_detail_screen.dart:403:107 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\painter\order_detail_screen.dart:404:78 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\painter\order_detail_screen.dart:405:35 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps - lib\features\painter\order_form_screen.dart:169:28 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\painter\order_form_screen.dart:543:25 - deprecated_member_use
+warning - Unused import: '../../providers/auth_provider.dart' - lib\features\painter\order_item_screen.dart:8:8 - unused_import
+warning - The declaration '_profileInfoCard' isn't referenced - lib\features\painter\painter_home_screen.dart:1622:10 - unused_element
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\painter\painter_ledger_screen.dart:43:15 - duplicate_named_argument
+   info - Unnecessary use of multiple underscores - lib\features\painter\painter_ledger_screen.dart:145:43 - unnecessary_underscores
+  error - The argument for the named parameter 'borderRadius' was already specified - lib\features\painter\painter_ledger_screen.dart:153:27 - duplicate_named_argument
+warning - Dead code - lib\features\painter\painter_udhaari_screen.dart:30:69 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\features\painter\painter_udhaari_screen.dart:30:72 - dead_null_aware_expression
+warning - Dead code - lib\features\painter\painter_udhaari_screen.dart:33:69 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\features\painter\painter_udhaari_screen.dart:33:72 - dead_null_aware_expression
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\painter\painter_udhaari_screen.dart:79:60 - deprecated_member_use
+warning - Dead code - lib\features\painter\painter_udhaari_screen.dart:279:71 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\features\painter\painter_udhaari_screen.dart:279:74 - dead_null_aware_expression
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\painter\painter_udhaari_screen.dart:288:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\painter\painter_udhaari_screen.dart:293:44 - deprecated_member_use
+warning - The left operand can't be null, so the right operand is never executed - lib\features\painter\painter_udhaari_screen.dart:322:57 - dead_null_aware_expression
+warning - The '!' will have no effect because the receiver can't be null - lib\features\painter\painter_udhaari_screen.dart:324:62 - unnecessary_non_null_assertion
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\painter\painter_udhaari_screen.dart:400:47 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\painter\referral_screen.dart:213:39 - unnecessary_underscores
+warning - Unused import: 'dart:math' - lib\features\painter\smart_search_delegate.dart:8:8 - unused_import
+warning - Unused import: '../../../core/constants/app_colors.dart' - lib\features\painter\widgets\shimmer_products.dart:3:8 - unused_import
+warning - Unused import: 'package:go_router/go_router.dart' - lib\features\shared\global_chat_list_screen.dart:3:8 - unused_import
+warning - Unused import: 'package:intl/intl.dart' - lib\features\shared\global_chat_list_screen.dart:5:8 - unused_import
+warning - Unused import: '../../providers/auth_provider.dart' - lib\features\shared\global_chat_list_screen.dart:7:8 - unused_import
+warning - Unused import: '../../services/data_service.dart' - lib\features\shared\global_chat_list_screen.dart:8:8 - unused_import
+warning - Unused import: '../../models/order_model.dart' - lib\features\shared\global_chat_list_screen.dart:9:8 - unused_import
+warning - Unused import: '../../core/services/haptic_service.dart' - lib\features\shared\global_chat_list_screen.dart:10:8 - unused_import
+warning - Unused import: '../shared/widgets/skeleton_loaders.dart' - lib\features\shared\global_chat_list_screen.dart:11:8 - unused_import
+warning - Unused import: 'package:flutter_staggered_animations/flutter_staggered_animations.dart' - lib\features\shared\global_chat_list_screen.dart:12:8 - unused_import
+warning - Unused import: 'package:intl/intl.dart' - lib\features\shared\order_chat_screen.dart:4:8 - unused_import
+warning - Unused import: '../../providers/auth_provider.dart' - lib\features\shared\order_chat_screen.dart:6:8 - unused_import
+warning - Unused import: '../../services/data_service.dart' - lib\features\shared\order_chat_screen.dart:7:8 - unused_import
+warning - Unused import: '../../core/services/haptic_service.dart' - lib\features\shared\order_chat_screen.dart:8:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\widgets\chat_coming_soon_view.dart:24:48 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\widgets\chat_coming_soon_view.dart:73:54 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\shared\widgets\chat_coming_soon_view.dart:135:43 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\widgets\glass_container.dart:33:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\widgets\glass_container.dart:37:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\widgets\glass_container.dart:44:30 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\shared\widgets\glass_container.dart:45:30 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\shared\widgets\product_image.dart:52:35 - unnecessary_underscores
+   info - Unnecessary use of multiple underscores - lib\features\shared\widgets\product_image.dart:52:39 - unnecessary_underscores
+warning - Unused import: '../../../core/constants/app_colors.dart' - lib\features\shared\widgets\skeleton_loaders.dart:3:8 - unused_import
+warning - Duplicate import - lib\router\app_router.dart:33:8 - duplicate_import
+warning - Duplicate import - lib\services\data_service.dart:16:8 - duplicate_import
+   info - The private field _referrals could be 'final' - lib\services\data_service.dart:30:23 - prefer_final_fields
+warning - Dead code - lib\services\data_service.dart:1035:84 - dead_code
+warning - The left operand can't be null, so the right operand is never executed - lib\services\data_service.dart:1035:87 - dead_null_aware_expression
+warning - The value of the field '_uuid' isn't used - lib\services\demo_data.dart:10:16 - unused_field
+warning - Unused import: 'package:flutter/foundation.dart' - lib\services\report_service.dart:3:8 - unused_import
+warning - Unused import: 'package:flutter/material.dart' - scratch\check_brands.dart:2:8 - unused_import
+warning - Unused import: 'package:flutter_riverpod/flutter_riverpod.dart' - scratch\check_brands.dart:3:8 - unused_import
+warning - Unused import: 'package:kutbi_paints/services/data_service.dart' - scratch\check_brands.dart:4:8 - unused_import
+warning - Unused import: 'package:kutbi_paints/models/product_model.dart' - scratch\check_brands.dart:5:8 - unused_import
+warning - Unused import: 'dart:io' - test_storage.dart:1:8 - unused_import
+   info - Don't invoke 'print' in production code - test_storage.dart:4:5 - avoid_print
+warning - Unused import: 'package:supabase_flutter/supabase_flutter.dart' - test_supabase.dart:1:8 - unused_import
+warning - Unused import: 'package:flutter_dotenv/flutter_dotenv.dart' - test_supabase.dart:2:8 - unused_import
+
