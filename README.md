@@ -1,6 +1,4 @@
-# kutbi_paints
-
-A new Flutter project.
+# kutbi paints and harware 
 
 ## Getting Started
 
