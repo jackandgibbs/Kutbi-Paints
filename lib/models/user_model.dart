@@ -15,6 +15,12 @@ class UserModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? referralCode;
+  final String? profileImageUrl;
+  // Bank details — added in migration 8
+  final String? bankAccountNumber;
+  final String? bankPassbookUrl;
+  final String bankStatus; // 'none' | 'pending' | 'approved' | 'rejected'
+  final bool bankRejectionSeen;
 
   UserModel({
     required this.id,
@@ -33,6 +39,11 @@ class UserModel {
     required this.createdAt,
     required this.updatedAt,
     this.referralCode,
+    this.profileImageUrl,
+    this.bankAccountNumber,
+    this.bankPassbookUrl,
+    this.bankStatus = 'none',
+    this.bankRejectionSeen = false,
   });
 
   bool get isAdmin => role == 'admin';
@@ -61,6 +72,11 @@ class UserModel {
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
       referralCode: json['referral_code'],
+      profileImageUrl: json['profile_image_url'],
+      bankAccountNumber: json['bank_account_number'],
+      bankPassbookUrl: json['bank_passbook_url'],
+      bankStatus: json['bank_status'] ?? 'none',
+      bankRejectionSeen: json['bank_rejection_seen'] ?? false,
     );
   }
 
@@ -85,6 +101,16 @@ class UserModel {
     if (appVersion != null) {
       map['app_version'] = appVersion;
     }
+    // Only include profile_image_url when set, so registration keeps working
+    // even before the profile_image_url column migration has been applied.
+    if (profileImageUrl != null) {
+      map['profile_image_url'] = profileImageUrl;
+    }
+    // Bank fields — conditionally included so registration works before migration 8.
+    if (bankAccountNumber != null) map['bank_account_number'] = bankAccountNumber;
+    if (bankPassbookUrl != null) map['bank_passbook_url'] = bankPassbookUrl;
+    if (bankStatus != 'none') map['bank_status'] = bankStatus;
+    if (bankRejectionSeen) map['bank_rejection_seen'] = bankRejectionSeen;
     return map;
   }
 
@@ -105,6 +131,11 @@ class UserModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? referralCode,
+    String? profileImageUrl,
+    String? bankAccountNumber,
+    String? bankPassbookUrl,
+    String? bankStatus,
+    bool? bankRejectionSeen,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -123,6 +154,11 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       referralCode: referralCode ?? this.referralCode,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+      bankPassbookUrl: bankPassbookUrl ?? this.bankPassbookUrl,
+      bankStatus: bankStatus ?? this.bankStatus,
+      bankRejectionSeen: bankRejectionSeen ?? this.bankRejectionSeen,
     );
   }
 }

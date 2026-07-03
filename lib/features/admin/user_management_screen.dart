@@ -385,19 +385,39 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
                                 : AppColors.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Center(
-                            child: isSelected
-                                ? const Icon(Icons.check_rounded,
-                                    color: Colors.white, size: 24)
-                                : Text(
-                                    user.name.substring(0, 1).toUpperCase(),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
+                          clipBehavior: Clip.antiAlias,
+                          child: isSelected
+                              ? const Center(
+                                  child: Icon(Icons.check_rounded,
+                                      color: Colors.white, size: 24))
+                              : (user.profileImageUrl != null &&
+                                      user.profileImageUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      user.profileImageUrl!,
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Text(
+                                          user.name.substring(0, 1).toUpperCase(),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        user.name.substring(0, 1).toUpperCase(),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                          ),
                         ),
                       ],
                     ),

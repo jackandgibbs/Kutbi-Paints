@@ -167,15 +167,16 @@ class OrderHistoryScreen extends ConsumerWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: statusColor.withValues(alpha: 0.1),
+                                color: (order.isRejected ? AppColors.error : statusColor)
+                                    .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                order.status.toUpperCase(),
+                                order.displayStatus.toUpperCase(),
                                 style: GoogleFonts.poppins(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
-                                  color: statusColor,
+                                  color: order.isRejected ? AppColors.error : statusColor,
                                 ),
                               ),
                             ),

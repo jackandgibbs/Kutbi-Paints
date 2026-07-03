@@ -200,7 +200,7 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
   Future<void> _showBillingDialog(OrderModel order) async {
     final ds = ref.read(dataServiceProvider);
     final painter = ds.getUserById(order.painterId);
-    
+
     // Local copy of items for editing rates
     final editableItems = order.items.map((item) => {
       'name': item.productName,
@@ -208,6 +208,10 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
       'quantity': item.quantity,
       'rate': (item.unitPrice > 0 ? item.unitPrice : 0).toDouble(),
     }).toList();
+
+    // Commission field
+    double commissionAmount = 0;
+    final commissionCtrl = TextEditingController();
 
     showDialog(
       context: context,
@@ -330,6 +334,31 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  // Commission field (optional)
+                  TextFormField(
+                    controller: commissionCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Painter Commission (optional)',
+                      prefixText: '₹ ',
+                      hintText: '0',
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
+                      ),
+                      helperText: 'Leave blank or 0 for no commission',
+                      helperStyle: GoogleFonts.poppins(fontSize: 11),
+                    ),
+                    onChanged: (v) {
+                      setModalState(() {
+                        commissionAmount = double.tryParse(v) ?? 0;
+                      });
+                    },
+                  ),
                 ],
               ),
             ),
@@ -366,11 +395,16 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
                     }).toList();
 
                     await ds.uploadBill(
-                      order.id, 
+                      order.id,
                       pdfUrl,
                       calculatedTotal,
                       customItems: updatedItems,
                     );
+
+                    // 3b. Save commission if > 0
+                    if (commissionAmount > 0) {
+                      await ds.updateOrderCommission(order.id, commissionAmount);
+                    }
 
                     // 4. Notify User
                     NotificationService.showBillUploaded(

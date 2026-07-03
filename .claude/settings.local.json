@@ -5,7 +5,9 @@
       "Bash(curl -s '__TRACKED_VAR__/rest/v1/app_settings?select=value&key=eq.last_auto_reset' -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
       "Bash(curl -s '__TRACKED_VAR__/rest/v1/app_settings?select=value&key=eq.points_history' -H 'apikey: __TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); v=d[0]['value'] if d else []; print\\('records:', len\\(v\\)\\); [print\\(' -', r.get\\('month'\\), '| reset:', r.get\\('reset_date'\\), '| painters:', len\\(r.get\\('painters',[]\\)\\), '| total_pts:', sum\\(p.get\\('points',0\\) for p in r.get\\('painters',[]\\)\\)\\) for r in v]\")",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "mcp__ide__getDiagnostics",
+      "Bash(cd *)"
     ]
   }
 }

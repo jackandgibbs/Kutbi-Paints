@@ -43,6 +43,11 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.person_pin_rounded),
+            onPressed: () => context.push('/admin/reset-points'),
+            tooltip: 'Reset Points',
+          ),
+          IconButton(
             icon: const Icon(Icons.history_rounded),
             onPressed: () => context.push('/admin/points-history'),
             tooltip: 'View History',

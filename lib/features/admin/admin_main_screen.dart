@@ -89,21 +89,6 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
       duration: const Duration(milliseconds: 500),
     );
     _pageController = PageController(initialPage: _currentIndex);
-    _checkAutoReset();
-  }
-
-  Future<void> _checkAutoReset() async {
-    final ds = ref.read(dataServiceProvider);
-    final wasReset = await ds.checkAndAutoResetPoints();
-    if (wasReset && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('The reward points are reset to zero, you can download PDF from history'),
-          backgroundColor: AppColors.info,
-          duration: Duration(seconds: 5),
-        ),
-      );
-    }
   }
 
   @override
@@ -229,9 +214,10 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
                         Expanded(
                           child: GestureDetector(
                             onTap: () async {
+                              final router = GoRouter.of(context);
                               Navigator.of(ctx).pop();
                               await ref.read(authProvider.notifier).logout();
-                              if (context.mounted) context.go('/login');
+                              router.go('/login');
                             },
                             child: Container(
                               height: 48,
@@ -439,44 +425,12 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
             children: _tabs,
           ),
 
-          // Dribbble-style Animated Pop-up Nav Bar
+          // Modern scrollable bottom nav bar
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: MediaQuery.of(context).padding.bottom + 16,
-            child: SizedBox(
-              height: 90, // Covers both the base and the pop-up area
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.bottomCenter,
-                children: [
-                  // Navbar base background
-                  Container(
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(32),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.textSlate.withValues(alpha: 0.05),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Icons Row
-                  SizedBox(
-                    height: 90,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: List.generate(7, (i) => Expanded(child: _buildNavItem(i))),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildModernNavBar(),
           ),
         ],
       ),
@@ -484,95 +438,118 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
     );
   }
 
-  Widget _buildNavItem(int index) {
+  Widget _buildModernNavBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 64,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(7, (i) => _buildModernNavItem(i)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernNavItem(int index) {
     final isSelected = _currentIndex == index;
-    final themeColor = AppColors.adminAccent;
+    final color = _tabGlowColors[index];
     final badgeCount = _getBadgeCount(index);
+    final label = _tabLabels[index];
+    final icon = _tabIcons[index];
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: 90,
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.bottomCenter,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 12,
+          vertical: 8,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: isSelected
+              ? Border.all(color: color.withValues(alpha: 0.25), width: 1)
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Floating Animated Icon
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutBack,
-              bottom: isSelected ? 38 : 12, // Pops up above the base
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 350),
-                width: isSelected ? 50 : 40,
-                height: isSelected ? 50 : 40,
-                decoration: BoxDecoration(
-                  color: isSelected ? themeColor : Colors.transparent,
-                  shape: BoxShape.circle,
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: themeColor.withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
-                          ),
-                        ]
-                      : [],
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: isSelected ? color : AppColors.textSlateLight,
                 ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      _tabIcons[index],
-                      size: isSelected ? 24 : 22,
-                      color: isSelected ? Colors.white : AppColors.textSlateLight,
+                if (badgeCount > 0)
+                  Positioned(
+                    top: -4,
+                    right: -5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 15, minHeight: 13),
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        style: GoogleFonts.inter(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1.1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    if (badgeCount > 0)
-                      Positioned(
-                        top: isSelected ? 0 : -4,
-                        right: isSelected ? 0 : -4,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.error,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white, width: 1.5),
-                          ),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 14),
-                          child: Text(
-                            badgeCount > 99 ? '99+' : badgeCount.toString(),
-                            style: GoogleFonts.inter(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              height: 1.1,
-                            ),
-                            textAlign: TextAlign.center,
+                  ),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              child: isSelected
+                  ? Row(
+                      children: [
+                        const SizedBox(width: 7),
+                        Text(
+                          label,
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                            letterSpacing: -0.2,
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            
-            // Label indicator appearing below when selected
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 250),
-              opacity: isSelected ? 1.0 : 0.0,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  _tabLabels[index],
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSlate,
-                  ),
-                ),
-              ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),

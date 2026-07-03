@@ -224,21 +224,64 @@ class CartScreen extends ConsumerWidget {
     final user = ref.read(authProvider).user;
     if (user == null || cart.isEmpty) return;
 
-    // Show location picker or just confirm
+    // Require site location for checkout
+    final siteLocationCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Place Order?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
-        content: Text('This will send your request to Kutbi Paints for billing.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setDlg) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Confirm & Checkout',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Enter your site/delivery address to place the order.',
+                style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: siteLocationCtrl,
+                maxLines: 2,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Site / Delivery Address *',
+                  prefixIcon: const Icon(Icons.location_on_rounded),
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel', style: GoogleFonts.poppins()),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (siteLocationCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    const SnackBar(content: Text('Please enter your site address')),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Place Order', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -270,13 +313,15 @@ class CartScreen extends ConsumerWidget {
       final order = OrderModel(
         id: '', // Will be set by service
         painterId: user.id,
+        painterName: user.name,
+        painterPhone: user.phone,
         brand: brand,
         items: orderItems,
         totalAmount: ref.read(cartProvider.notifier).totalAmount,
         status: 'pending_bill',
         paymentMethod: 'udhaari',
         paymentStatus: 'pending',
-        siteLocation: user.businessAddress ?? 'My Site',
+        siteLocation: siteLocationCtrl.text.trim(),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

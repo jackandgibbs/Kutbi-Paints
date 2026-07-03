@@ -12,12 +12,16 @@ import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../services/cart_service.dart';
 import '../../models/user_model.dart';
+import '../../models/brand_model.dart';
 
 import '../../l10n/generated/app_localizations.dart';
 import '../../providers/locale_provider.dart';
 import '../../core/services/haptic_service.dart';
 import '../shared/widgets/skeleton_loaders.dart';
 import '../shared/widgets/product_image.dart';
+import '../shared/widgets/user_avatar.dart';
+import 'widgets/banner_carousel.dart';
+import 'widgets/banner_popup.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/services.dart';
@@ -26,6 +30,8 @@ import '../../core/widgets/skeuomorphic_background.dart';
 import '../../core/widgets/clay_card.dart';
 import '../../core/widgets/glass_brand_card.dart';
 import '../../core/widgets/liquid_glass_navbar.dart';
+import 'cart_screen.dart';
+import 'painter_earnings_screen.dart';
 
 class PainterHomeScreen extends ConsumerStatefulWidget {
   const PainterHomeScreen({super.key});
@@ -40,6 +46,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
   DateTime? _lastBackPressTime;
   late final FToast _fToast;
   late final PageController _pageController;
+  bool _bannerPopupShown = false;
 
   void _onItemTapped(int index) {
     HapticService.light();
@@ -57,6 +64,24 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     )..forward();
+
+    // Show promotional banners popup once per session after the frame renders.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowBannerPopup());
+  }
+
+  void _maybeShowBannerPopup() async {
+    if (_bannerPopupShown || !mounted) return;
+    final ds = ref.read(dataServiceProvider);
+    // Wait briefly for data to finish loading if needed.
+    int waited = 0;
+    while (!ds.isLoaded && waited < 30) {
+      await Future.delayed(const Duration(milliseconds: 200));
+      waited++;
+    }
+    final banners = ds.getActiveBanners();
+    if (banners.isEmpty || !mounted) return;
+    _bannerPopupShown = true;
+    await showBannerPopup(context, banners);
   }
 
   @override
@@ -81,6 +106,18 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
         glowColor: Color(0xFFFF6BB5),
       ),
       DesktopNavItem(
+        icon: Icons.shopping_cart_outlined,
+        activeIcon: Icons.shopping_cart_rounded,
+        label: 'Cart',
+        glowColor: Color(0xFFFF9500),
+      ),
+      DesktopNavItem(
+        icon: Icons.account_balance_wallet_outlined,
+        activeIcon: Icons.account_balance_wallet_rounded,
+        label: 'Earnings',
+        glowColor: Color(0xFF10B981),
+      ),
+      DesktopNavItem(
         icon: Icons.person_outline_rounded,
         activeIcon: Icons.person_rounded,
         label: 'Profile',
@@ -102,6 +139,8 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
       final tabs = [
         _buildHomeTab(user, dataService),
         _buildOrdersTab(dataService),
+        const CartScreen(),
+        const PainterEarningsScreen(),
         _buildProfileTab(user),
       ];
       return DesktopShell(
@@ -215,13 +254,22 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
             children: [
               RepaintBoundary(child: KeepAliveWrapper(child: _buildHomeTab(user, dataService))),
               RepaintBoundary(child: KeepAliveWrapper(child: _buildOrdersTab(dataService))),
+              const RepaintBoundary(child: KeepAliveWrapper(child: CartScreen())),
+              const RepaintBoundary(child: KeepAliveWrapper(child: PainterEarningsScreen())),
               RepaintBoundary(child: KeepAliveWrapper(child: _buildProfileTab(user))),
             ],
           ),
         ),
-        bottomNavigationBar: LiquidGlassNavbar(
-          currentIndex: _currentIndex,
-          onTap: _onItemTapped,
+        bottomNavigationBar: Consumer(
+          builder: (_, cartRef, __) {
+            final cartItems = cartRef.watch(cartProvider);
+            final cartCount = cartItems.fold<int>(0, (s, i) => s + i.quantity);
+            return LiquidGlassNavbar(
+              currentIndex: _currentIndex,
+              onTap: _onItemTapped,
+              badgeCounts: [0, 0, cartCount, 0, 0],
+            );
+          },
         ),
       ),
     );
@@ -264,19 +312,13 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                       surfaceColor: AppColors.clayBase,
                       padding: const EdgeInsets.all(0),
                       useShadow: false,
-                      child: SizedBox(
-                        width: 52,
-                        height: 52,
-                        child: Center(
-                          child: Text(
-                            user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : '?',
-                            style: GoogleFonts.poppins(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF8C8FB4),
-                            ),
-                          ),
-                        ),
+                      child: UserAvatar(
+                        imageUrl: user.profileImageUrl,
+                        name: user.name,
+                        size: 52,
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: const Color(0xFF8C8FB4),
+                        fontSize: 22,
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -409,22 +451,44 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
               Builder(
                 builder: (ctx) {
                   final liveUser = ds.users.firstWhere((u) => u.id == user.id, orElse: () => user);
-                  final nextMilestone = ds.getNextMilestoneForPainter(user.id);
-                  if (nextMilestone == null) return const SizedBox.shrink();
-                  
-                  double progress = 0;
-                  if (nextMilestone.targetPoints > 0) {
-                    progress = liveUser.points / nextMilestone.targetPoints;
-                    if (progress > 1.0) progress = 1.0;
+                  final milestones = ds.getMilestonesForPainter(user.id); // sorted asc by targetPoints
+                  if (milestones.isEmpty) return const SizedBox.shrink();
+
+                  final pts = liveUser.points;
+
+                  // Highest already-achieved target acts as the baseline for the
+                  // current segment; the next milestone is the first still ahead.
+                  int prevTarget = 0;
+                  dynamic nextMilestone;
+                  for (final m in milestones) {
+                    if (m.targetPoints > pts) {
+                      nextMilestone = m;
+                      break;
+                    }
+                    prevTarget = m.targetPoints;
                   }
-                  
+
+                  final bool allAchieved = nextMilestone == null;
+                  final target = allAchieved ? milestones.last : nextMilestone;
+
+                  // Progress within the current segment (relative to previous target).
+                  final segmentSpan = (target.targetPoints - prevTarget);
+                  final already = (pts - prevTarget).clamp(0, segmentSpan);
+                  double progress = allAchieved
+                      ? 1.0
+                      : (segmentSpan > 0 ? already / segmentSpan : 0.0);
+                  if (progress > 1.0) progress = 1.0;
+
+                  final away = (target.targetPoints - pts).clamp(0, target.targetPoints);
+                  final Color accent = allAchieved ? AppColors.success : AppColors.primary;
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.05),
+                      color: accent.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                      border: Border.all(color: accent.withValues(alpha: 0.2)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,17 +498,40 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.star_rounded, color: AppColors.primary, size: 20),
+                                Icon(allAchieved ? Icons.emoji_events_rounded : Icons.star_rounded,
+                                    color: accent, size: 20),
                                 const SizedBox(width: 8),
-                                Text('Next Milestone', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: AppColors.primary)),
+                                Text(allAchieved ? 'Milestone Achieved' : 'Next Milestone',
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: accent)),
                               ],
                             ),
-                            Text('${nextMilestone.targetPoints - liveUser.points} pts away', 
-                                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                            if (allAchieved)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: accent.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_rounded, size: 14, color: accent),
+                                    const SizedBox(width: 3),
+                                    Text('Achieved',
+                                        style: GoogleFonts.poppins(
+                                            fontSize: 11, fontWeight: FontWeight.w600, color: accent)),
+                                  ],
+                                ),
+                              )
+                            else
+                              Text('$away pts away',
+                                  style: GoogleFonts.poppins(
+                                      fontSize: 12, fontWeight: FontWeight.w600, color: accent)),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(nextMilestone.rewardTitle, style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textPrimary)),
+                        Text(target.rewardTitle,
+                            style: GoogleFonts.poppins(fontSize: 14, color: AppColors.textPrimary)),
                         const SizedBox(height: 12),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
@@ -452,9 +539,15 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                             value: progress,
                             minHeight: 8,
                             backgroundColor: Colors.white,
-                            valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                            valueColor: AlwaysStoppedAnimation(accent),
                           ),
                         ),
+                        if (!allAchieved) ...[
+                          const SizedBox(height: 6),
+                          Text('$already / $segmentSpan pts',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                        ],
                       ],
                     ),
                   );
@@ -482,7 +575,35 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
               ),
               const SizedBox(height: 28),
 
-
+              // Promotional banners carousel (only shown when banners exist)
+              Builder(builder: (ctx) {
+                final banners = ds.getActiveBanners();
+                if (banners.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Promotions',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Check out our latest offers',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    BannerCarousel(banners: banners),
+                    const SizedBox(height: 28),
+                  ],
+                );
+              }),
 
               // ─── Quick Reorder Section ────────────────────
               if (lastProducts.isNotEmpty) ...[
@@ -589,114 +710,68 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
   );
 }
 
+  /// Maps a brand name to the painter route to use.
+  /// Built-in brands get their dedicated rich screens; all others use the
+  /// generic BrandDashboardScreen (already supports arbitrary brand strings).
+  String _routeForBrand(String name) {
+    switch (name.toLowerCase()) {
+      case 'asian paints': return '/painter/asian-paints';
+      case 'berger':       return '/painter/berger';
+      case 'birla opus':   return '/painter/birla-opus';
+      case 'tools':        return '/painter/tools';
+      default:             return '/painter/brand/${Uri.encodeComponent(name)}';
+    }
+  }
+
+  /// Built-in subtitle copy; custom brands just say "Products".
+  String _subtitleForBrand(String name) {
+    switch (name.toLowerCase()) {
+      case 'asian paints': return 'Premium Quality Paints';
+      case 'berger':       return 'Color That Lasts';
+      case 'birla opus':   return 'Nature-Inspired Colors';
+      case 'tools':        return 'Professional Equipment';
+      default:             return 'Products';
+    }
+  }
+
+  Widget _buildBrandCard(BrandModel brand, DataService ds, {double? fixedWidth}) {
+    final gradient = AppColors.getBrandGradient(brand.name);
+    final primary  = AppColors.getBrandPrimary(brand.name);
+    final count    = ds.getProductsByBrand(brand.name).length;
+    final label    = brand.name.toLowerCase() == 'tools' ? '$count Items' : '$count Products';
+    final card = GlassBrandCard(
+      brandName:     brand.name,
+      subtitle:      _subtitleForBrand(brand.name),
+      imageUrl:      brand.hasLogo ? brand.logoUrl : null,
+      icon:          brand.hasLogo ? null : Icons.palette_rounded,
+      gradientStart: gradient[0],
+      gradientEnd:   gradient[1],
+      glassTint:     primary.withValues(alpha: 0.1),
+      productCount:  label,
+      onTap: () => context.push(_routeForBrand(brand.name)),
+    );
+    if (fixedWidth != null) return SizedBox(width: fixedWidth, child: card);
+    return card;
+  }
+
   Widget _buildBrandCardsList(DataService ds) {
+    final brands = ds.getAllBrands();
     return Column(
       children: [
-        GlassBrandCard(
-          brandName: 'Asian Paints',
-          subtitle: 'Premium Quality Paints',
-          imageUrl: 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/ap.png',
-          gradientStart: AppColors.asianPaintsGradientStart,
-          gradientEnd: AppColors.asianPaintsGradientEnd,
-          glassTint: AppColors.asianPaintsGlassTint,
-          productCount: '${ds.getProductsByBrand('Asian Paints').length} Products',
-          onTap: () => context.push('/painter/asian-paints'),
-        ),
-        const SizedBox(height: 16),
-        GlassBrandCard(
-          brandName: 'Berger',
-          subtitle: 'Color That Lasts',
-          icon: Icons.brush_rounded,
-          gradientStart: AppColors.bergerGradientStart,
-          gradientEnd: AppColors.bergerGradientEnd,
-          glassTint: AppColors.bergerGlassTint,
-          productCount: '${ds.getProductsByBrand('Berger').length} Products',
-          onTap: () => context.push('/painter/berger'),
-        ),
-        const SizedBox(height: 16),
-        GlassBrandCard(
-          brandName: 'Birla Opus',
-          subtitle: 'Nature-Inspired Colors',
-          imageUrl: 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/opus.png',
-          gradientStart: AppColors.birlaOpusGradientStart,
-          gradientEnd: AppColors.birlaOpusGradientEnd,
-          glassTint: AppColors.birlaOpusGlassTint,
-          productCount: '${ds.getProductsByBrand('Birla Opus').length} Products',
-          onTap: () => context.push('/painter/birla-opus'),
-        ),
-        const SizedBox(height: 16),
-        GlassBrandCard(
-          brandName: 'Tools',
-          subtitle: 'Professional Equipment',
-          icon: Icons.construction_rounded,
-          gradientStart: AppColors.toolsGradientStart,
-          gradientEnd: AppColors.toolsGradientEnd,
-          glassTint: AppColors.toolsGlassTint,
-          productCount: '${ds.getProductsByBrand('Tools').length} Items',
-          onTap: () => context.push('/painter/tools'),
-        ),
+        for (int i = 0; i < brands.length; i++) ...[
+          _buildBrandCard(brands[i], ds),
+          if (i < brands.length - 1) const SizedBox(height: 16),
+        ],
       ],
     );
   }
 
   Widget _buildBrandCardsGrid(DataService ds) {
+    final brands = ds.getAllBrands();
     return Wrap(
       spacing: 16,
       runSpacing: 16,
-      children: [
-        SizedBox(
-          width: 340,
-          child: GlassBrandCard(
-            brandName: 'Asian Paints',
-            subtitle: 'Premium Quality Paints',
-            imageUrl: 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/ap.png',
-            gradientStart: AppColors.asianPaintsGradientStart,
-            gradientEnd: AppColors.asianPaintsGradientEnd,
-            glassTint: AppColors.asianPaintsGlassTint,
-            productCount: '${ds.getProductsByBrand('Asian Paints').length} Products',
-            onTap: () => context.push('/painter/asian-paints'),
-          ),
-        ),
-        SizedBox(
-          width: 340,
-          child: GlassBrandCard(
-            brandName: 'Berger',
-            subtitle: 'Color That Lasts',
-            icon: Icons.brush_rounded,
-            gradientStart: AppColors.bergerGradientStart,
-            gradientEnd: AppColors.bergerGradientEnd,
-            glassTint: AppColors.bergerGlassTint,
-            productCount: '${ds.getProductsByBrand('Berger').length} Products',
-            onTap: () => context.push('/painter/berger'),
-          ),
-        ),
-        SizedBox(
-          width: 340,
-          child: GlassBrandCard(
-            brandName: 'Birla Opus',
-            subtitle: 'Nature-Inspired Colors',
-            imageUrl: 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/opus.png',
-            gradientStart: AppColors.birlaOpusGradientStart,
-            gradientEnd: AppColors.birlaOpusGradientEnd,
-            glassTint: AppColors.birlaOpusGlassTint,
-            productCount: '${ds.getProductsByBrand('Birla Opus').length} Products',
-            onTap: () => context.push('/painter/birla-opus'),
-          ),
-        ),
-        SizedBox(
-          width: 340,
-          child: GlassBrandCard(
-            brandName: 'Tools',
-            subtitle: 'Professional Equipment',
-            icon: Icons.construction_rounded,
-            gradientStart: AppColors.toolsGradientStart,
-            gradientEnd: AppColors.toolsGradientEnd,
-            glassTint: AppColors.toolsGlassTint,
-            productCount: '${ds.getProductsByBrand('Tools').length} Items',
-            onTap: () => context.push('/painter/tools'),
-          ),
-        ),
-      ],
+      children: brands.map((b) => _buildBrandCard(b, ds, fixedWidth: 340)).toList(),
     );
   }
 
@@ -885,7 +960,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
 
 
   Widget _orderCard(dynamic order) {
-    final statusColor = _getStatusColor(order.status);
+    final statusColor = order.isRejected ? AppColors.error : _getStatusColor(order.status);
     return GestureDetector(
       onTap: () => context.push('/painter/order-detail/${order.id}'),
       child: Container(
@@ -934,7 +1009,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                order.status.toUpperCase(),
+                order.displayStatus.toUpperCase(),
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -1425,16 +1500,35 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                           ),
                         ],
                       ),
-                      child: Center(
-                        child: Text(
-                          user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : '?',
-                          style: GoogleFonts.poppins(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                      child: (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty)
+                          ? ClipOval(
+                              child: Image.network(
+                                user.profileImageUrl!,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                errorBuilder: (_, __, ___) => Center(
+                                  child: Text(
+                                    user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : '?',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 34,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : '?',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1556,6 +1650,9 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   _skeuoInfoTile(Icons.email_rounded, 'Email', user.email),
                   if (user.businessAddress != null)
                     _skeuoInfoTile(Icons.location_on_rounded, 'Address', user.businessAddress!),
+
+                  // Bank Details — Skeuomorphic clickable card
+                  _skeuoBankDetailsTile(user),
 
                   // Support Admins
                   if (admins.isNotEmpty) ...[
@@ -1772,6 +1869,124 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Skeuomorphic bank details tile — clickable card with status indicator
+  Widget _skeuoBankDetailsTile(dynamic user) {
+    final bankStatus = user.bankStatus ?? 'none';
+    final (statusColor, statusLabel, statusIcon) = switch (bankStatus) {
+      'approved' => (const Color(0xFF10B981), 'Approved', Icons.check_circle_rounded),
+      'pending'  => (const Color(0xFFF59E0B), 'Pending review', Icons.hourglass_top_rounded),
+      'rejected' => (AppColors.error, 'Rejected — tap to resubmit', Icons.error_rounded),
+      _          => (AppColors.primary, 'Add bank details', Icons.arrow_forward_ios_rounded),
+    };
+
+    return GestureDetector(
+      onTap: () => context.push('/painter/bank-details'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFF6F3EE),
+          border: Border.all(
+            color: bankStatus == 'rejected'
+                ? AppColors.error.withValues(alpha: 0.4)
+                : const Color(0xFFE8E4DD),
+            width: bankStatus == 'rejected' ? 2 : 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: bankStatus == 'rejected'
+                  ? AppColors.error.withValues(alpha: 0.15)
+                  : Colors.black.withValues(alpha: 0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.65),
+              blurRadius: 4,
+              spreadRadius: 0,
+              offset: const Offset(-1.5, -1.5),
+            ),
+          ],
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFAF8F5),
+              Color(0xFFF0ECE6),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            // Skeuomorphic inset icon well
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFEBE7E0),
+                boxShadow: [
+                  // Inner dark shadow (inset simulation)
+                  BoxShadow(
+                    color: AppColors.clayDarkShadow.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(2, 2),
+                  ),
+                  // Inner light highlight
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    blurRadius: 4,
+                    offset: const Offset(-1.5, -1.5),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.account_balance_rounded,
+                  color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Bank Details',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.3,
+                      )),
+                  const SizedBox(height: 2),
+                  Text(statusLabel,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: bankStatus == 'none'
+                            ? AppColors.textPrimary
+                            : statusColor,
+                      )),
+                ],
+              ),
+            ),
+            // Status indicator badge
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: statusColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Icon(statusIcon, color: statusColor, size: 18),
+            ),
+          ],
+        ),
       ),
     );
   }

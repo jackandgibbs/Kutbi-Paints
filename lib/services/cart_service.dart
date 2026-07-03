@@ -10,16 +10,18 @@ final cartProvider = StateNotifierProvider<CartService, List<CartItemModel>>((re
 class CartService extends StateNotifier<List<CartItemModel>> {
   CartService() : super([]);
 
-  void addItem(ProductModel product, String bucketSize, {String? shadeCode}) {
-    final existingIndex = state.indexWhere((item) => 
-      item.productId == product.id && 
-      item.bucketSize == bucketSize && 
+  void addItem(ProductModel product, String bucketSize, {String? shadeCode, int quantity = 1}) {
+    final qty = quantity < 1 ? 1 : quantity;
+    final existingIndex = state.indexWhere((item) =>
+      item.productId == product.id &&
+      item.bucketSize == bucketSize &&
       item.shadeCode == shadeCode
     );
 
     if (existingIndex != -1) {
       final updatedList = List<CartItemModel>.from(state);
-      updatedList[existingIndex].quantity++;
+      updatedList[existingIndex] = updatedList[existingIndex]
+          .copyWith(quantity: updatedList[existingIndex].quantity + qty);
       state = updatedList;
     } else {
       state = [
@@ -31,7 +33,7 @@ class CartService extends StateNotifier<List<CartItemModel>> {
           bucketSize: bucketSize,
           shadeCode: shadeCode,
           price: product.prices[bucketSize] ?? 0.0,
-          quantity: 1,
+          quantity: qty,
         ),
       ];
     }

@@ -280,6 +280,8 @@ class _PendingBillsScreenState extends ConsumerState<PendingBillsScreen>
                                   imageUrl = 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/opus.png';
                                 } else if (brandLower.contains('asian')) {
                                   imageUrl = 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/ap.png';
+                                } else if (brandLower.contains('berger')) {
+                                  imageUrl = 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/berger.png';
                                 }
                                 return imageUrl != null
                                     ? Padding(

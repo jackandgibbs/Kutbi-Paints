@@ -133,6 +133,17 @@ class _AdminBillsTabState extends ConsumerState<AdminBillsTab> {
                   onTap: () => context.push('/admin/reset-pin'),
                   index: 4,
                 ),
+                const SizedBox(height: 18),
+
+                // Commissions Card
+                _claymorphicActionCard(
+                  icon: Icons.account_balance_wallet_rounded,
+                  title: 'Commissions',
+                  subtitle: 'Set & edit painter commissions',
+                  glowColor: const Color(0xFF10B981),
+                  onTap: () => context.push('/admin/commissions'),
+                  index: 5,
+                ),
               ],
             ),
           ),

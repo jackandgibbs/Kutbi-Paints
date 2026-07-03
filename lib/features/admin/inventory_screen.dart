@@ -120,6 +120,11 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
+                        onPressed: () => context.push('/admin/brands'),
+                        icon: const Icon(Icons.business_rounded, color: AppColors.adminPrimary),
+                        tooltip: 'Manage Brands',
+                      ),
+                      IconButton(
                         onPressed: () => _exportPDF(products),
                         icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.error),
                         tooltip: 'Export PDF',
@@ -176,16 +181,14 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Brand Filters
+                        // Brand Filters — derived from the brands table (dynamic)
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: [
                               _filterChip('All', _selectedBrand == 'All'),
-                              _filterChip('Asian Paints', _selectedBrand == 'Asian Paints'),
-                              _filterChip('Berger', _selectedBrand == 'Berger'),
-                              _filterChip('Birla Opus', _selectedBrand == 'Birla Opus'),
-                              _filterChip('Tools', _selectedBrand == 'Tools'),
+                              ...ds.getAllBrands().map((b) =>
+                                  _filterChip(b.name, _selectedBrand == b.name)),
                             ],
                           ),
                         ),

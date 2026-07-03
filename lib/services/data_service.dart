@@ -14,6 +14,8 @@ import '../models/promotion_model.dart';
 import '../models/referral_model.dart';
 import '../models/qr_code_model.dart';
 import '../models/milestone_model.dart';
+import '../models/brand_model.dart';
+import '../models/banner_model.dart';
 import 'package:uuid/uuid.dart';
 import 'notification_service.dart';
 
@@ -33,6 +35,9 @@ class DataService extends ChangeNotifier {
   List<QRCodeModel> _qrCodes = [];
   List<MilestoneModel> _milestones = [];
   List<Map<String, dynamic>> _milestoneAchievements = [];
+  List<BrandModel> _brands = [];
+  List<Map<String, dynamic>> _brandCategories = [];
+  List<BannerModel> _banners = [];
   String _adminQrUrl = '';
   String _minAppVersion = '1.0.0';
   String _forceUpdateUrl = 'https://kutbi-paints.com/update';
@@ -65,6 +70,8 @@ class DataService extends ChangeNotifier {
 
   List<UserModel> get users => _users;
   List<UserModel> get painters => _users.where((u) => u.isPainter).toList();
+  List<UserModel> get paintersWithPendingBank =>
+      _users.where((u) => u.isPainter && u.bankStatus == 'pending').toList();
 
   // Cached stats for performance
   int get activeQRCount => _qrCodes.where((qr) => qr.status == 'active').length;
@@ -161,6 +168,21 @@ class DataService extends ChangeNotifier {
       final achievementsData = await _sb.from('milestone_achievements').select();
       _milestoneAchievements = List<Map<String, dynamic>>.from(achievementsData);
     } catch (e) { debugPrint('Error loading milestone achievements: $e'); }
+
+    try {
+      final brandsData = await _sb.from('brands').select().order('sort_order');
+      _brands = (brandsData as List).map((b) => BrandModel.fromJson(b)).toList();
+    } catch (e) { debugPrint('Error loading brands: $e'); }
+
+    try {
+      final bcData = await _sb.from('brand_categories').select();
+      _brandCategories = List<Map<String, dynamic>>.from(bcData);
+    } catch (e) { debugPrint('Error loading brand_categories: $e'); }
+
+    try {
+      final bannersData = await _sb.from('banners').select().order('sort_order');
+      _banners = (bannersData as List).map((b) => BannerModel.fromJson(b)).toList();
+    } catch (e) { debugPrint('Error loading banners: $e'); }
 
     try {
       final historyData = await _sb.from('app_settings').select().eq('key', 'points_history').maybeSingle();
@@ -1284,6 +1306,382 @@ class DataService extends ChangeNotifier {
     }
   }
 
+  /// Uploads a user's profile selfie to storage and returns its public URL.
+  Future<String> uploadProfileImage(String userId, dynamic imageBytes, String fileName) async {
+    try {
+      final path = 'profiles/$userId/$fileName';
+      await _sb.storage.from('paint-images').uploadBinary(
+        path,
+        imageBytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      return _sb.storage.from('paint-images').getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading profile image: $e');
+      throw Exception('Failed to upload profile image: $e');
+    }
+  }
+
+  /// Persists a user's profile image URL and refreshes the in-memory cache.
+  Future<void> updateUserProfileImage(String userId, String url) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      _users[index] = _users[index].copyWith(profileImageUrl: url);
+      notifyListeners();
+    }
+    try {
+      await _sb.from('users').update({'profile_image_url': url}).eq('id', userId);
+    } catch (e) {
+      debugPrint('Error updating profile image: $e');
+      throw Exception('Failed to update profile image: $e');
+    }
+  }
+
+  // ─── BANK DETAILS ────────────────────────────────────────────
+
+  /// Uploads a passbook image to Supabase Storage and returns its public URL.
+  Future<String> uploadBankPassbook(
+      String userId, dynamic imageBytes, String fileName) async {
+    try {
+      final path = 'bank-passbooks/$userId/$fileName';
+      await _sb.storage.from('paint-images').uploadBinary(
+        path,
+        imageBytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      return _sb.storage.from('paint-images').getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading bank passbook: $e');
+      throw Exception('Failed to upload passbook: $e');
+    }
+  }
+
+  /// Saves bank details and sets bankStatus → 'pending'.
+  Future<void> updateUserBankDetails(
+      String userId, String accountNumber, String passbookUrl) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      _users[index] = _users[index].copyWith(
+        bankAccountNumber: accountNumber,
+        bankPassbookUrl: passbookUrl,
+        bankStatus: 'pending',
+        bankRejectionSeen: false,
+      );
+      notifyListeners();
+    }
+    try {
+      await _sb.from('users').update({
+        'bank_account_number': accountNumber,
+        'bank_passbook_url': passbookUrl,
+        'bank_status': 'pending',
+        'bank_rejection_seen': false,
+      }).eq('id', userId);
+    } catch (e) {
+      debugPrint('Error updating bank details: $e');
+      throw Exception('Failed to update bank details: $e');
+    }
+  }
+
+  /// Sets bankStatus to 'approved' or 'rejected'.
+  /// On rejection also resets bankRejectionSeen so the gate fires next open.
+  Future<void> updateBankStatus(String userId, String status) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      _users[index] = _users[index].copyWith(
+        bankStatus: status,
+        bankRejectionSeen: status == 'rejected' ? false : null,
+      );
+      notifyListeners();
+    }
+    try {
+      final payload = <String, dynamic>{'bank_status': status};
+      if (status == 'rejected') payload['bank_rejection_seen'] = false;
+      await _sb.from('users').update(payload).eq('id', userId);
+    } catch (e) {
+      debugPrint('Error updating bank status: $e');
+      throw Exception('Failed to update bank status: $e');
+    }
+  }
+
+  /// Called after painter sees the rejection screen — prevents the gate firing again.
+  Future<void> markBankRejectionSeen(String userId) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      _users[index] = _users[index].copyWith(bankRejectionSeen: true);
+      notifyListeners();
+    }
+    try {
+      await _sb
+          .from('users')
+          .update({'bank_rejection_seen': true}).eq('id', userId);
+    } catch (e) {
+      debugPrint('Error marking rejection seen: $e');
+    }
+  }
+
+  // ─── BRANDS ──────────────────────────────────────────────────
+
+  /// All brands sorted by sort_order then name. Falls back to deriving
+  /// brand names from products if the brands table is empty (pre-migration).
+  List<BrandModel> getAllBrands() {
+    if (_brands.isNotEmpty) {
+      final sorted = List<BrandModel>.from(_brands)
+        ..sort((a, b) {
+          final cmp = a.sortOrder.compareTo(b.sortOrder);
+          return cmp != 0 ? cmp : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      return sorted;
+    }
+    // Fallback: derive unique brand names from products.
+    final names = _products.map((p) => p.brand).toSet().toList()..sort();
+    return names.map((n) => BrandModel(id: n, name: n, createdAt: DateTime.now())).toList();
+  }
+
+  BrandModel? getBrandByName(String name) {
+    final normalized = _normalizeLabel(name);
+    try {
+      return _brands.firstWhere((b) => _normalizeLabel(b.name) == normalized);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<BrandModel> addBrand({required String name, String? logoUrl}) async {
+    final maxOrder = _brands.isEmpty ? 0 : _brands.map((b) => b.sortOrder).reduce((a, b) => a > b ? a : b);
+    final brand = BrandModel(
+      id: _uuid.v4(),
+      name: name,
+      logoUrl: logoUrl,
+      sortOrder: maxOrder + 1,
+      createdAt: DateTime.now(),
+    );
+    _brands.add(brand);
+    notifyListeners();
+    try {
+      await _sb.from('brands').insert(brand.toJson());
+    } catch (e) {
+      debugPrint('Error adding brand: $e');
+      _brands.removeLast();
+      notifyListeners();
+      throw Exception('Failed to add brand: $e');
+    }
+    return brand;
+  }
+
+  Future<String> uploadBrandLogo(String brandId, dynamic imageBytes, String fileName) async {
+    try {
+      final path = 'brands/$brandId/$fileName';
+      await _sb.storage.from('paint-images').uploadBinary(
+        path,
+        imageBytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      return _sb.storage.from('paint-images').getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading brand logo: $e');
+      throw Exception('Failed to upload brand logo: $e');
+    }
+  }
+
+  Future<void> updateBrandLogo(String brandId, String url) async {
+    final i = _brands.indexWhere((b) => b.id == brandId);
+    if (i != -1) {
+      _brands[i] = _brands[i].copyWith(logoUrl: url);
+      notifyListeners();
+    }
+    try {
+      await _sb.from('brands').update({'logo_url': url}).eq('id', brandId);
+    } catch (e) {
+      debugPrint('Error updating brand logo: $e');
+      throw Exception('Failed to update brand logo: $e');
+    }
+  }
+
+  /// Update brand name
+  Future<void> updateBrandName(String brandId, String newName) async {
+    final i = _brands.indexWhere((b) => b.id == brandId);
+    if (i != -1) {
+      _brands[i] = _brands[i].copyWith(name: newName);
+      notifyListeners();
+    }
+    try {
+      await _sb.from('brands').update({'name': newName}).eq('id', brandId);
+    } catch (e) {
+      debugPrint('Error updating brand name: $e');
+      throw Exception('Failed to update brand name: $e');
+    }
+  }
+
+  // ─── BANNERS / PAMPHLETS ────────────────────────────────────
+
+  List<BannerModel> getActiveBanners() {
+    return _banners.where((b) => b.isActive).toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  List<BannerModel> getAllBanners() => List.unmodifiable(_banners);
+
+  Future<String> uploadBannerImage(String bannerId, dynamic bytes, String fileName) async {
+    try {
+      final path = 'banners/$bannerId/$fileName';
+      await _sb.storage.from('paint-images').uploadBinary(
+        path,
+        bytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      return _sb.storage.from('paint-images').getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading banner: $e');
+      throw Exception('Failed to upload banner: $e');
+    }
+  }
+
+  Future<BannerModel> addBanner({required String imageUrl, String? title}) async {
+    final maxOrder = _banners.isEmpty ? 0 : _banners.map((b) => b.sortOrder).reduce((a, b) => a > b ? a : b);
+    final banner = BannerModel(
+      id: _uuid.v4(),
+      imageUrl: imageUrl,
+      title: title,
+      sortOrder: maxOrder + 1,
+      createdAt: DateTime.now(),
+    );
+    _banners.add(banner);
+    notifyListeners();
+    try {
+      await _sb.from('banners').insert(banner.toJson());
+    } catch (e) {
+      debugPrint('Error adding banner: $e');
+      _banners.removeLast();
+      notifyListeners();
+      throw Exception('Failed to add banner: $e');
+    }
+    return banner;
+  }
+
+  Future<void> deleteBanner(String id) async {
+    _banners.removeWhere((b) => b.id == id);
+    notifyListeners();
+    try {
+      await _sb.from('banners').delete().eq('id', id);
+    } catch (e) {
+      debugPrint('Error deleting banner: $e');
+    }
+  }
+
+  Future<void> toggleBannerActive(String id, bool active) async {
+    final i = _banners.indexWhere((b) => b.id == id);
+    if (i == -1) return;
+    _banners[i] = BannerModel(
+      id: _banners[i].id,
+      imageUrl: _banners[i].imageUrl,
+      title: _banners[i].title,
+      isActive: active,
+      sortOrder: _banners[i].sortOrder,
+      createdAt: _banners[i].createdAt,
+    );
+    notifyListeners();
+    try {
+      await _sb.from('banners').update({'is_active': active}).eq('id', id);
+    } catch (e) {
+      debugPrint('Error toggling banner: $e');
+    }
+  }
+
+  /// Deletes the brand, its products, and its persisted categories.
+  Future<void> deleteBrand(String brandId) async {
+    final brand = _brands.firstWhere((b) => b.id == brandId, orElse: () => throw Exception('Brand not found'));
+    final brandName = brand.name;
+    // Collect product IDs to delete.
+    final productIds = _products.where((p) => _normalizeLabel(p.brand) == _normalizeLabel(brandName)).map((p) => p.id).toList();
+    // Remove in-memory.
+    _products.removeWhere((p) => _normalizeLabel(p.brand) == _normalizeLabel(brandName));
+    _brandCategories.removeWhere((c) => _normalizeLabel(c['brand'] as String) == _normalizeLabel(brandName));
+    _brands.removeWhere((b) => b.id == brandId);
+    notifyListeners();
+    // Persist deletions.
+    try {
+      if (productIds.isNotEmpty) {
+        await _sb.from('products').delete().inFilter('id', productIds);
+      }
+      await _sb.from('brand_categories').delete().eq('brand', brandName);
+      await _sb.from('brands').delete().eq('id', brandId);
+    } catch (e) {
+      debugPrint('Error deleting brand: $e');
+      // Re-fetch to recover consistent state.
+      await refresh();
+      throw Exception('Failed to delete brand: $e');
+    }
+  }
+
+  /// Ensures a brand row exists for the given name (called on product add).
+  Future<void> ensureBrandExists(String name) async {
+    if (name.isEmpty) return;
+    if (getBrandByName(name) != null) return;
+    await addBrand(name: name);
+  }
+
+  // ─── BRAND CATEGORIES ────────────────────────────────────────
+
+  /// Categories persisted in brand_categories for [brand].
+  List<String> getPersistedCategories(String brand) {
+    final normalized = _normalizeLabel(brand);
+    return _brandCategories
+        .where((c) => _normalizeLabel(c['brand'] as String) == normalized)
+        .map((c) => c['name'] as String)
+        .toList();
+  }
+
+  /// Union of derived (from products) + persisted categories for [brand].
+  List<String> getAllCategoriesForBrand(String brand) {
+    final derived = getCategoriesForBrand(brand);
+    final persisted = getPersistedCategories(brand);
+    final union = {...derived, ...persisted}.where((c) => c.isNotEmpty && c != 'None').toList();
+    union.sort();
+    return union;
+  }
+
+  Future<void> addBrandCategory(String brand, String name) async {
+    final existing = getAllCategoriesForBrand(brand);
+    if (existing.map(_normalizeLabel).contains(_normalizeLabel(name))) return;
+    final entry = {
+      'id': _uuid.v4(),
+      'brand': brand,
+      'name': name,
+      'created_at': DateTime.now().toIso8601String(),
+    };
+    _brandCategories.add(entry);
+    notifyListeners();
+    try {
+      await _sb.from('brand_categories').insert(entry);
+    } catch (e) {
+      debugPrint('Error adding brand category: $e');
+      _brandCategories.removeLast();
+      notifyListeners();
+      throw Exception('Failed to add brand category: $e');
+    }
+  }
+
+  Future<void> deleteBrandCategory(String id) async {
+    _brandCategories.removeWhere((c) => c['id'] == id);
+    notifyListeners();
+    try {
+      await _sb.from('brand_categories').delete().eq('id', id);
+    } catch (e) {
+      debugPrint('Error deleting brand category: $e');
+    }
+  }
+
+  Map<String, String> getPersistedCategoryIds(String brand) {
+    final normalized = _normalizeLabel(brand);
+    final result = <String, String>{};
+    for (final c in _brandCategories) {
+      if (_normalizeLabel(c['brand'] as String) == normalized) {
+        result[c['name'] as String] = c['id'] as String;
+      }
+    }
+    return result;
+  }
+
   Future<void> updateOrderStatus(String orderId, String status) async {
     final i = _orders.indexWhere((o) => o.id == orderId);
     if (i != -1) {
@@ -1435,6 +1833,47 @@ class DataService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error bulk deleting orders: $e');
       throw Exception('Failed to bulk delete orders: $e');
+    }
+  }
+
+  // ─── COMMISSION ────────────────────────────────────────────────
+
+  /// Update the commission for an order (admin-only). Persists to Supabase.
+  Future<void> updateOrderCommission(String orderId, double commission) async {
+    final i = _orders.indexWhere((o) => o.id == orderId);
+    if (i != -1) {
+      _orders[i] = _orders[i].copyWith(commission: commission);
+      notifyListeners();
+      try {
+        await _sb.from('orders').update({
+          'commission': commission,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', orderId);
+      } catch (e) {
+        debugPrint('Error updating commission: $e');
+        rethrow;
+      }
+    }
+  }
+
+  // ─── POINTS MANAGEMENT ─────────────────────────────────────────
+
+  /// Set a painter's points to [points] and persist. Negative values are clamped to 0.
+  Future<void> updateUserPoints(String userId, int points) async {
+    final clamped = points < 0 ? 0 : points;
+    final i = _users.indexWhere((u) => u.id == userId);
+    if (i != -1) {
+      _users[i] = _users[i].copyWith(points: clamped);
+      notifyListeners();
+      try {
+        await _sb.from('users').update({
+          'points': clamped,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', userId);
+      } catch (e) {
+        debugPrint('Error updating user points: $e');
+        rethrow;
+      }
     }
   }
 
@@ -2350,6 +2789,8 @@ class DataService extends ChangeNotifier {
   }
   
   Future<void> addProduct(ProductModel product) async {
+    // Auto-create the brand entry if this is a custom/new brand.
+    await ensureBrandExists(product.brand);
     await _sb.from('products').insert(product.toJson()).catchError((e) {
       debugPrint('Error adding product: $e');
       throw Exception('Failed to add product: $e');

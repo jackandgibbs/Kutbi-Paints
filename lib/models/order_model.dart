@@ -109,6 +109,7 @@ class OrderModel {
   final bool refundCompleted;
   final bool deletedByAdmin;
   final bool hideAmount; // If true, painter sees '--' instead of amount
+  final double commission; // Optional painter commission set by admin at billing time
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -134,6 +135,7 @@ class OrderModel {
     this.refundCompleted = false,
     this.deletedByAdmin = false,
     this.hideAmount = false,
+    this.commission = 0.0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -164,6 +166,7 @@ class OrderModel {
       refundCompleted: json['refund_completed'] ?? false,
       deletedByAdmin: json['deleted_by_admin'] ?? false,
       hideAmount: json['hide_amount'] ?? false,
+      commission: (json['commission'] ?? 0).toDouble(),
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
     );
@@ -192,6 +195,7 @@ class OrderModel {
       'refund_completed': refundCompleted,
       'deleted_by_admin': deletedByAdmin,
       'hide_amount': hideAmount,
+      if (commission != 0.0) 'commission': commission,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -219,6 +223,7 @@ class OrderModel {
     bool? refundCompleted,
     bool? deletedByAdmin,
     bool? hideAmount,
+    double? commission,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -244,6 +249,7 @@ class OrderModel {
       refundCompleted: refundCompleted ?? this.refundCompleted,
       deletedByAdmin: deletedByAdmin ?? this.deletedByAdmin,
       hideAmount: hideAmount ?? this.hideAmount,
+      commission: commission ?? this.commission,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -264,6 +270,13 @@ class OrderModel {
     status != 'cancelled';
 
   bool get canBeCancelled => status == 'pending_bill' || status == 'udhaari_requested' || status == 'udhaari_pending_approval' || status == 'to_be_revealed';
+
+  /// Whether the order was rejected by admin (cancelled or deleted).
+  bool get isRejected =>
+      deletedByAdmin || status == 'cancelled' || status == 'deleted';
+
+  /// Status text shown to painters; rejected orders read as 'rejected'.
+  String get displayStatus => isRejected ? 'rejected' : status;
 
   /// Remaining amount dynamically calculated based on paid amount and udhaari interest
   double get remainingAmount {

@@ -7,6 +7,8 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/auth/pending_approval_screen.dart';
 import '../features/painter/painter_home_screen.dart';
+import '../features/painter/complete_selfie_screen.dart';
+import '../core/utils/platform_support.dart';
 import '../features/painter/brand_dashboard_screen.dart';
 import '../features/painter/birla_opus_screen.dart';
 import '../features/painter/berger_screen.dart';
@@ -26,6 +28,8 @@ import '../features/painter/pending_debt_screen.dart';
 import '../features/painter/painter_bills_screen.dart';
 import '../features/painter/painter_udhaari_screen.dart';
 import '../features/painter/cart_screen.dart';
+import '../features/painter/painter_bank_details_screen.dart';
+import '../features/painter/painter_bank_rejected_screen.dart';
 import '../features/shared/order_chat_screen.dart';
 import '../features/shared/global_chat_list_screen.dart';
 import '../features/admin/admin_main_screen.dart';
@@ -53,6 +57,11 @@ import '../features/admin/admin_pin_reset_screen.dart';
 import '../features/admin/stock_management_screen.dart';
 import '../features/admin/points_history_screen.dart';
 import '../features/admin/deleted_qrs_screen.dart';
+import '../features/admin/brands_categories_screen.dart';
+import '../features/admin/brand_detail_screen.dart';
+import '../features/admin/admin_commissions_screen.dart';
+import '../features/admin/admin_reset_points_screen.dart';
+import '../features/admin/admin_bank_details_screen.dart';
 
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -115,6 +124,37 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/pending-approval';
       }
 
+      // Forced selfie gate: painters on mobile must have a profile photo before
+      // accessing the app. Skipped on desktop (no camera capture there).
+      final isSelfieRoute = state.matchedLocation == '/painter/complete-selfie';
+      final needsSelfie = isLoggedIn &&
+          authState.isPainter &&
+          !PlatformSupport.isDesktop &&
+          (authState.user?.profileImageUrl == null ||
+              authState.user!.profileImageUrl!.isEmpty);
+      if (needsSelfie && !isSelfieRoute) {
+        return '/painter/complete-selfie';
+      }
+      // Don't let a user who already has a photo sit on the selfie screen.
+      if (isSelfieRoute && !needsSelfie) {
+        return '/painter';
+      }
+
+      // Bank rejection gate: if painter's bank details were rejected and they
+      // haven't seen the rejection message yet, force them to the rejection screen.
+      final isBankRejectedRoute = state.matchedLocation == '/painter/bank-rejected';
+      final needsBankRejectionGate = isLoggedIn &&
+          authState.isPainter &&
+          authState.user?.bankStatus == 'rejected' &&
+          authState.user?.bankRejectionSeen == false;
+      if (needsBankRejectionGate && !isBankRejectedRoute) {
+        return '/painter/bank-rejected';
+      }
+      // Don't let a painter who's already seen the rejection sit on the rejection screen.
+      if (isBankRejectedRoute && !needsBankRejectionGate) {
+        return '/painter';
+      }
+
       if (isLoggedIn && (isLoginRoute || isRegisterRoute)) {
         if (authState.isAdmin) return '/admin';
         return '/painter';
@@ -160,6 +200,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadeTransitionPage(
           state: state,
           child: const PainterHomeScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/complete-selfie',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const CompleteSelfieScreen(),
         ),
       ),
       GoRoute(
@@ -306,13 +353,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           child: const PainterAnalyticsScreen(),
         ),
       ),
-      // GoRoute(
-      //   path: '/painter/cart',
-      //   pageBuilder: (context, state) => _fadeTransitionPage(
-      //     state: state,
-      //     child: const CartScreen(),
-      //   ),
-      // ),
+      GoRoute(
+        path: '/painter/cart',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const CartScreen(),
+        ),
+      ),
+
+      GoRoute(
+        path: '/painter/bank-details',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterBankDetailsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/bank-rejected',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const PainterBankRejectedScreen(),
+        ),
+      ),
 
       GoRoute(
         path: '/painter/ledger',
@@ -513,6 +575,44 @@ final routerProvider = Provider<GoRouter>((ref) {
           state: state,
           child: const AdminPinResetScreen(),
         ),
+      ),
+      GoRoute(
+        path: '/admin/commissions',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminCommissionsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/reset-points',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminResetPointsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/brands',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const BrandsCategoriesScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/bank-details',
+        pageBuilder: (context, state) => _fadeTransitionPage(
+          state: state,
+          child: const AdminBankDetailsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/brand-detail/:brand',
+        pageBuilder: (context, state) {
+          final brand = Uri.decodeComponent(state.pathParameters['brand']!);
+          return _fadeTransitionPage(
+            state: state,
+            child: BrandDetailScreen(brandName: brand),
+          );
+        },
       ),
       GoRoute(
         path: '/admin-secret-login',

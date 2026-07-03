@@ -283,7 +283,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                     leading: CircleAvatar(
                       backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      child: Text(painter.name[0], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      backgroundImage: (painter.profileImageUrl != null && painter.profileImageUrl!.isNotEmpty)
+                          ? NetworkImage(painter.profileImageUrl!)
+                          : null,
+                      child: (painter.profileImageUrl != null && painter.profileImageUrl!.isNotEmpty)
+                          ? null
+                          : Text(painter.name[0], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                     ),
                     title: Text(painter.name, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
                     subtitle: Text(painter.phone, style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textLight)),

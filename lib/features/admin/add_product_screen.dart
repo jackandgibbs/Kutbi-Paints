@@ -31,11 +31,16 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   final _customCategoryCtrl = TextEditingController();
   final _customSubCategoryCtrl = TextEditingController();
+  final _customBrandCtrl = TextEditingController();
+
+  // Built-in brands that always appear in the dropdown.
+  static const List<String> _baseBrands = ['Asian Paints', 'Berger', 'Birla Opus', 'Tools'];
 
   String _brand = 'Asian Paints';
   String _category = 'ADD_NEW';
   String _subCategory = 'ADD_NEW';
   String _unit = 'L';
+  bool _isCustomBrand = false;
   bool _isCustomCategory = true;
   bool _isCustomSubCategory = true;
 
@@ -121,6 +126,12 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     _category = p.category;
     _subCategory = p.subCategory;
 
+    // Check if brand is a custom (non built-in) brand
+    if (!_baseBrands.contains(_brand)) {
+      _isCustomBrand = true;
+      _customBrandCtrl.text = _brand;
+    }
+
     // Check if category is custom
     final brandCats = ds.getCategoriesForBrand(_brand).where((c) => c != 'None' && c.isNotEmpty).toList();
     if (!brandCats.contains(_category)) {
@@ -174,6 +185,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     }
     _customCategoryCtrl.dispose();
     _customSubCategoryCtrl.dispose();
+    _customBrandCtrl.dispose();
     _minQtyCtrl.dispose();
     super.dispose();
   }
@@ -235,7 +247,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       final product = ProductModel(
         id: productId,
         name: _nameCtrl.text.trim(),
-        brand: _brand,
+        brand: _isCustomBrand ? _customBrandCtrl.text.trim() : _brand,
         category: _isCustomCategory ? _customCategoryCtrl.text.trim() : _category,
         subCategory: _isCustomSubCategory ? _customSubCategoryCtrl.text.trim() : _subCategory.trim(),
         colorCode: '',
@@ -355,28 +367,68 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               ),
               const SizedBox(height: 30),
 
-              // Brand Dropdown
-              DropdownButtonFormField<String>(
-                value: _brand,
-                decoration: const InputDecoration(
-                  labelText: 'Brand',
-                  prefixIcon: Icon(Icons.business_rounded, color: AppColors.primary),
-                ),
-                items: ['Asian Paints', 'Berger', 'Birla Opus', 'Tools']
-                    .map((b) => DropdownMenuItem(value: b, child: Text(b)))
-                    .toList(),
-                onChanged: (v) {
-                  setState(() => _brand = v!);
-                  _updateCategoriesForBrand(v!);
-                },
-              ),
-              const SizedBox(height: 14),
-              
-              // Category Dropdown
+              // Brand Dropdown (supports adding a custom brand)
               Builder(
                 builder: (context) {
                   final ds = ref.watch(dataServiceProvider);
-                  final catList = ds.getCategoriesForBrand(_brand).where((c) => c != 'None' && c.isNotEmpty).toList();
+                  // Derive brand list from the brands table (dynamic); fall back to base brands.
+                  final managedBrands = ds.getAllBrands().map((b) => b.name).toList();
+                  final brandList = managedBrands.isNotEmpty
+                      ? managedBrands
+                      : <String>[
+                          ..._baseBrands,
+                          ...ds.getAllProducts()
+                              .map((p) => p.brand)
+                              .where((b) => b.isNotEmpty && !_baseBrands.contains(b)),
+                        ].toSet().toList();
+
+                  return DropdownButtonFormField<String>(
+                    value: _isCustomBrand ? 'ADD_NEW' : _brand,
+                    decoration: const InputDecoration(
+                      labelText: 'Brand',
+                      prefixIcon: Icon(Icons.business_rounded, color: AppColors.primary),
+                    ),
+                    items: [
+                      ...brandList.map((b) => DropdownMenuItem(value: b, child: Text(b))),
+                      const DropdownMenuItem(
+                        value: 'ADD_NEW',
+                        child: Text('+ Add New Brand',
+                            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v == null) return;
+                      setState(() {
+                        if (v == 'ADD_NEW') {
+                          _isCustomBrand = true;
+                          // A brand-new brand has no preset categories yet.
+                          _category = 'ADD_NEW';
+                          _isCustomCategory = true;
+                          _subCategory = 'ADD_NEW';
+                          _isCustomSubCategory = true;
+                        } else {
+                          _isCustomBrand = false;
+                          _brand = v;
+                        }
+                      });
+                      if (v != 'ADD_NEW') _updateCategoriesForBrand(v);
+                    },
+                  );
+                },
+              ),
+              if (_isCustomBrand) ...[
+                const SizedBox(height: 12),
+                _field(_customBrandCtrl, 'New Brand Name', Icons.add_business_rounded,
+                    validator: (v) => _isCustomBrand && v!.trim().isEmpty ? 'Required' : null),
+              ],
+              const SizedBox(height: 14),
+
+              // Category Dropdown — union of product-derived + persisted categories
+              Builder(
+                builder: (context) {
+                  final ds = ref.watch(dataServiceProvider);
+                  final effectiveBrand = _isCustomBrand ? (_customBrandCtrl.text.trim().isEmpty ? '' : _customBrandCtrl.text.trim()) : _brand;
+                  final catList = ds.getAllCategoriesForBrand(effectiveBrand);
                   if (!catList.contains(_category) && _category != 'ADD_NEW') {
                      catList.add(_category);
                   }
@@ -428,7 +480,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               if (!_isCustomCategory) Builder(
                 builder: (context) {
                   final ds = ref.watch(dataServiceProvider);
-                  final subCatList = ds.getProductsGroupedBySubCategory(_brand, _category).keys.where((s) => s != 'None' && s.isNotEmpty).toList();
+                  final effectiveBrand = _isCustomBrand ? (_customBrandCtrl.text.trim().isEmpty ? '' : _customBrandCtrl.text.trim()) : _brand;
+                  final subCatList = ds.getProductsGroupedBySubCategory(effectiveBrand, _category).keys.where((s) => s != 'None' && s.isNotEmpty).toList();
                   if (!subCatList.contains(_subCategory) && _subCategory != 'ADD_NEW') {
                      subCatList.add(_subCategory);
                   }

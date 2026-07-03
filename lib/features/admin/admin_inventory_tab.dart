@@ -26,6 +26,7 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
     final ds = ref.watch(dataServiceProvider);
     final painters = ds.getAllPainters();
     final pendingPainters = painters.where((p) => p.status == 'inactive').length;
+    final pendingBank = ds.paintersWithPendingBank.length;
     final productsCount = ds.getAllProducts().length;
     final lowStockCount = ds.getLowStockAlerts().length;
 
@@ -102,8 +103,14 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
                     title: 'Painters',
                     subtitle: '${painters.length} registered painters',
                     glowColor: const Color(0xFF8B5CF6),
-                    badgeText: pendingPainters > 0 ? '$pendingPainters pending' : null,
-                    badgeColor: AppColors.adminAccent,
+                    badgeText: pendingBank > 0
+                        ? '$pendingBank bank pending'
+                        : pendingPainters > 0
+                            ? '$pendingPainters pending'
+                            : null,
+                    badgeColor: pendingBank > 0
+                        ? AppColors.error
+                        : AppColors.adminAccent,
                     onTap: () => context.push('/admin/users'),
                     index: 1,
                   ),
@@ -119,6 +126,19 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
                     badgeColor: const Color(0xFFF59E0B),
                     onTap: () => context.push('/admin/stock-management'),
                     index: 2,
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Bank Details Card
+                  _claymorphicActionCard(
+                    icon: Icons.account_balance_rounded,
+                    title: 'Bank Details',
+                    subtitle: 'Review painter bank submissions',
+                    glowColor: const Color(0xFF0EA5E9),
+                    badgeText: pendingBank > 0 ? '$pendingBank pending' : null,
+                    badgeColor: AppColors.error,
+                    onTap: () => context.push('/admin/bank-details'),
+                    index: 3,
                   ),
                 ],
               ),

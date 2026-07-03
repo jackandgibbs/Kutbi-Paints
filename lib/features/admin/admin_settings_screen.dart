@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/data_service.dart';
 import '../../services/notification_service.dart';
+import '../../models/banner_model.dart';
 
 class AdminSettingsScreen extends ConsumerStatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -21,6 +23,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
   final _updateUrlCtrl = TextEditingController();
   bool _forceUpdateEnabled = false;
   bool _isUploading = false;
+  bool _isUploadingBanner = false;
 
   @override
   void initState() {
@@ -80,6 +83,41 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
           SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.error),
         );
       }
+    }
+  }
+
+  Future<void> _uploadBanner() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _isUploadingBanner = true);
+
+      final ds = ref.read(dataServiceProvider);
+      final bytes = await File(picked.path).readAsBytes();
+      final bannerId = DateTime.now().millisecondsSinceEpoch.toString();
+      final fileName = 'banner_$bannerId.jpg';
+      final url = await ds.uploadBannerImage(bannerId, bytes, fileName);
+      await ds.addBanner(imageUrl: url);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Banner uploaded successfully'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingBanner = false);
     }
   }
 
@@ -404,9 +442,179 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 32),
+
+            // ─── Promotional Banners ────────────────────────
+            Text(
+              'Promotional Banners',
+              style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Banners are shown to painters as a popup when they open the app and as a swipeable carousel on their home screen.',
+              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+
+            // Upload button
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: _isUploadingBanner ? null : _uploadBanner,
+                icon: _isUploadingBanner
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.add_photo_alternate_rounded, size: 20),
+                label: Text(
+                  _isUploadingBanner ? 'Uploading...' : 'Upload New Banner',
+                  style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.adminPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Existing banners list
+            Consumer(
+              builder: (context, ref, _) {
+                final ds = ref.watch(dataServiceProvider);
+                final banners = ds.getAllBanners();
+                if (banners.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.image_outlined, size: 48, color: Colors.grey.shade300),
+                          const SizedBox(height: 8),
+                          Text('No banners uploaded yet',
+                              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textLight)),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return Column(
+                  children: banners.map((banner) => _buildBannerTile(banner, ds)).toList(),
+                );
+              },
+            ),
+
             const SizedBox(height: 120),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildBannerTile(BannerModel banner, DataService ds) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          // Thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              banner.imageUrl,
+              width: 72,
+              height: 52,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 72,
+                height: 52,
+                color: Colors.grey.shade200,
+                child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  banner.title ?? 'Banner',
+                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: (banner.isActive ? AppColors.success : AppColors.textLight)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        banner.isActive ? 'Active' : 'Hidden',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: banner.isActive ? AppColors.success : AppColors.textLight,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Toggle active
+          Switch.adaptive(
+            value: banner.isActive,
+            onChanged: (val) => ds.toggleBannerActive(banner.id, val),
+            activeColor: AppColors.success,
+          ),
+          // Delete
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  title: Text('Delete banner?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                  content: Text('This banner will be removed from the painter app.',
+                      style: GoogleFonts.poppins(fontSize: 13)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: Text('Delete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) ds.deleteBanner(banner.id);
+            },
+          ),
+        ],
       ),
     );
   }

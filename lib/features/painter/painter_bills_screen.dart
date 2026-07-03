@@ -6,9 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/platform_support.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
+import '../../services/cart_service.dart';
 import '../shared/widgets/product_image.dart';
 import '../../core/utils/responsive.dart';
 
@@ -23,6 +26,14 @@ class PainterBillsScreen extends ConsumerStatefulWidget {
 }
 
 class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
+  static const int _pageSize = 8;
+  int _visibleCount = _pageSize;
+
+  Future<void> _onRefresh(DataService ds) async {
+    await ds.refresh();
+    if (mounted) setState(() => _visibleCount = _pageSize);
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
@@ -31,6 +42,8 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
     if (user == null) return const SizedBox.shrink();
 
     final billedOrders = ds.getBilledOrdersForPainter(user.id);
+    final visibleOrders = billedOrders.take(_visibleCount).toList();
+    final hasMore = billedOrders.length > visibleOrders.length;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
@@ -46,7 +59,7 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
           child: RefreshIndicator(
-            onRefresh: ds.refresh,
+            onRefresh: () => _onRefresh(ds),
             child: billedOrders.isEmpty
                 ? SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -79,9 +92,35 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: billedOrders.length,
+                    itemCount: visibleOrders.length + (hasMore ? 1 : 0),
                     itemBuilder: (ctx, i) {
-                      final order = billedOrders[i];
+                      if (i >= visibleOrders.length) {
+                        // "Load More" footer row
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Center(
+                            child: OutlinedButton.icon(
+                              onPressed: () => setState(
+                                  () => _visibleCount += _pageSize),
+                              icon: const Icon(Icons.expand_more_rounded, size: 18),
+                              label: Text(
+                                'Load More (${billedOrders.length - visibleOrders.length} left)',
+                                style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w600, fontSize: 13),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      final order = visibleOrders[i];
                       return _buildBillCard(order, ds);
                     },
                   ),
@@ -135,6 +174,8 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
                       imageUrl = 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/opus.png';
                     } else if (brandLower.contains('asian')) {
                       imageUrl = 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/ap.png';
+                    } else if (brandLower.contains('berger')) {
+                      imageUrl = 'https://mlzrqgocvenrwjnabljm.supabase.co/storage/v1/object/public/paint-images/brands/berger.png';
                     }
                     return imageUrl != null
                         ? Padding(
@@ -429,7 +470,7 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          isPendingReveal ? 'PENDING REVEAL' : order.status.toUpperCase(),
+                          isPendingReveal ? 'PENDING REVEAL' : order.displayStatus.toUpperCase(),
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -440,7 +481,22 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
+                // Re-order to cart button
+                Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF9500).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: IconButton(
+                    onPressed: () => _reorderToCart(order),
+                    icon: const Icon(Icons.add_shopping_cart_rounded,
+                        size: 18, color: Color(0xFFFF9500)),
+                    tooltip: 'Add to Cart',
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   height: 40,
                   decoration: BoxDecoration(
@@ -466,21 +522,63 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
     );
   }
 
+  void _reorderToCart(dynamic order) {
+    final ds = ref.read(dataServiceProvider);
+    int added = 0;
+    for (final item in order.items) {
+      final product = ds.getProductById(item.productId);
+      if (product == null) continue;
+      ref.read(cartProvider.notifier).addItem(
+        product,
+        item.bucketSize,
+        shadeCode: item.shadeCode,
+        quantity: item.quantity,
+      );
+      added++;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(added > 0
+            ? '$added item${added == 1 ? '' : 's'} added to cart!'
+            : 'No products found to add'),
+        backgroundColor:
+            added > 0 ? const Color(0xFFFF9500) : AppColors.error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
   void _showFullBill(String url) async {
+    final isPdf = url.toLowerCase().endsWith('.pdf');
+
+    // On Windows/desktop, PdfPreview is not supported — open in system browser.
+    if (PlatformSupport.isDesktop) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open bill. Try copying the URL manually.')),
+        );
+      }
+      return;
+    }
+
+    // Mobile: download and display.
     try {
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(child: CircularProgressIndicator()),
       );
-      
+
       final response = await http.get(Uri.parse(url));
       if (!mounted) return;
       Navigator.pop(context);
-      
+
       if (response.statusCode == 200) {
-        if (url.toLowerCase().endsWith('.pdf') || 
-            response.headers['content-type']?.contains('pdf') == true) {
+        if (isPdf || response.headers['content-type']?.contains('pdf') == true) {
           _showPdfViewer(response.bodyBytes);
         } else {
           _showImageDialog(url);

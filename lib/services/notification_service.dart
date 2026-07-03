@@ -145,6 +145,28 @@ class NotificationService {
     );
   }
 
+  /// Show notification to painter when admin approves their bank details.
+  static Future<void> showBankDetailsApproved() async {
+    await _show(
+      id: 500,
+      title: 'Bank Details Approved ✅',
+      body: 'Your bank details are now approved!',
+      channel: 'bank',
+      channelName: 'Bank Updates',
+    );
+  }
+
+  /// Show notification to admin when a painter submits bank details.
+  static Future<void> showAdminBankPending({required String painterName}) async {
+    await _show(
+      id: 501,
+      title: 'New Bank Details Request',
+      body: '$painterName has submitted bank details — pending review.',
+      channel: 'bank',
+      channelName: 'Bank Updates',
+    );
+  }
+
   /// Show notification when a new product is added
   static Future<void> showNewProduct({
     required String productName,

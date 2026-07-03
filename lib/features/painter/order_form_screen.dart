@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../../models/order_model.dart';
+import '../../services/cart_service.dart';
 import '../shared/widgets/product_image.dart';
 
 class OrderFormScreen extends ConsumerStatefulWidget {
@@ -40,6 +41,7 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
   final List<_OrderItemEntry> _items = [];
 
   bool _isFetchingLocation = false;
+  bool _addingToCart = false;
 
   late final AnimationController _staggerController;
 
@@ -218,6 +220,46 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
     } finally {
       if (mounted) setState(() => _isFetchingLocation = false);
     }
+  }
+
+  /// Adds all items to the cart WITHOUT requiring a site location.
+  void _addToCart() {
+    final ds = ref.read(dataServiceProvider);
+    int added = 0;
+    for (final item in _items) {
+      if (item.selectedProduct == null || item.selectedSize == null) continue;
+      final qty = int.tryParse(item.qtyCtrl.text) ?? 0;
+      if (qty <= 0) continue;
+      ref.read(cartProvider.notifier).addItem(
+        item.selectedProduct!,
+        item.selectedSize!,
+        shadeCode: item.shadeCodeCtrl.text.trim().isEmpty
+            ? null
+            : item.shadeCodeCtrl.text.trim(),
+        quantity: qty,
+      );
+      added++;
+    }
+    if (added == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one product')),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$added item${added == 1 ? '' : 's'} added to cart!'),
+        backgroundColor: const Color(0xFFFF9500),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        action: SnackBarAction(
+          label: 'View Cart',
+          textColor: Colors.white,
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+    );
+    Navigator.pop(context);
   }
 
   Future<void> _placeOrder() async {
@@ -476,9 +518,10 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
                   decoration: const InputDecoration(
                     hintText: 'Enter site address or location',
                     prefixIcon: Icon(Icons.location_on_rounded),
+                    helperText: 'Required for Place Order, optional for Add to Cart',
                   ),
                   validator: (v) =>
-                      v!.isEmpty ? 'Site location is required' : null,
+                      v!.isEmpty ? 'Site location is required for ordering' : null,
                 ),
                 const SizedBox(height: 24),
 
@@ -553,6 +596,30 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
                 ),
                 const SizedBox(height: 20),
 
+                // Add to Cart button
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    onPressed: _addToCart,
+                    icon: const Icon(Icons.shopping_cart_rounded, size: 20),
+                    label: Text(
+                      'Add to Cart',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: brandColor,
+                      side: BorderSide(color: brandColor, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   height: 54,

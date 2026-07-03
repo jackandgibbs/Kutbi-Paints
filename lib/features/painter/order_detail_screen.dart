@@ -92,7 +92,7 @@ class OrderDetailScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          order.status.toUpperCase(),
+                          order.displayStatus.toUpperCase(),
                           style: GoogleFonts.poppins(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
