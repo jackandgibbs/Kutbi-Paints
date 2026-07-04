@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
-import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../../core/widgets/clay_card.dart';

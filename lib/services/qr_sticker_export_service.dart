@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -150,10 +149,10 @@ class QRStickerExportService {
     }
     logoImage ??= cachedLogo;
 
-    final primary = PdfColor.fromInt(palette.primary.value);
-    final secondary = PdfColor.fromInt(palette.secondary.value);
-    final textColor = PdfColor.fromInt(palette.text.value);
-    final accent = PdfColor.fromInt(palette.accent.value);
+    final primary = PdfColor.fromInt(palette.primary.toARGB32());
+    final secondary = PdfColor.fromInt(palette.secondary.toARGB32());
+    final textColor = PdfColor.fromInt(palette.text.toARGB32());
+    final accent = PdfColor.fromInt(palette.accent.toARGB32());
 
     // Scale factors based on sticker size
     final scale = stickerSize / 200.0;

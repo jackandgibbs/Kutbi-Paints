@@ -15,7 +15,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/pdf.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/qr_code_model.dart';
 import '../../providers/auth_provider.dart';
@@ -49,7 +48,7 @@ class _AdminQRGeneratorScreenState
 
   int _points = 50;
   String _selectedPaletteKey = 'teal';
-  String _statusFilter = 'all';
+  final String _statusFilter = 'all';
   String _searchQuery = '';
   String _previewId = '';
   Uint8List? _customLogoBytes;
@@ -67,7 +66,7 @@ class _AdminQRGeneratorScreenState
   int _pdfColumns = 2;
   int _pdfRows = 3;
   int _currentPage = 0;
-  int _rowsPerPage = 10;
+  final int _rowsPerPage = 10;
 
   @override
   void initState() {
@@ -580,7 +579,7 @@ class _AdminQRGeneratorScreenState
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: paletteKey,
+                      initialValue: paletteKey,
                       decoration: const InputDecoration(
                         labelText: 'Color Theme',
                         border: OutlineInputBorder(),

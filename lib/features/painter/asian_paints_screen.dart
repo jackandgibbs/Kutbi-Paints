@@ -10,7 +10,6 @@ import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../shared/widgets/skeleton_loaders.dart';
 import '../shared/widgets/product_image.dart';
-import '../../services/cart_service.dart';
 
 /// Asian Paints multi-level product selection screen.
 ///
@@ -197,7 +196,7 @@ class _AsianPaintsScreenState extends ConsumerState<AsianPaintsScreen> {
         key: key,
         padding: const EdgeInsets.all(20),
         itemCount: 6,
-        itemBuilder: (_, __) => const BrandCardSkeleton(),
+        itemBuilder: (_, _) => const BrandCardSkeleton(),
       );
     }
 
@@ -418,7 +417,7 @@ class _AsianPaintsScreenState extends ConsumerState<AsianPaintsScreen> {
           childAspectRatio: 0.7,
         ),
         itemCount: 6,
-        itemBuilder: (_, __) => const InventoryItemSkeleton(),
+        itemBuilder: (_, _) => const InventoryItemSkeleton(),
       );
     }
 
@@ -554,7 +553,7 @@ class _AsianPaintsScreenState extends ConsumerState<AsianPaintsScreen> {
                         child: ElevatedButton(
                           onPressed: () => context.push('/painter/order-item/${product.id}'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _brandColor.withOpacity(0.1),
+                            backgroundColor: _brandColor.withValues(alpha: 0.1),
                             foregroundColor: _brandColor,
                             elevation: 0,
                             padding: EdgeInsets.zero,

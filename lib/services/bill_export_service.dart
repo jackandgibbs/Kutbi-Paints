@@ -5,8 +5,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order_model.dart';
-import '../models/product_model.dart';
-import '../services/data_service.dart';
 
 class BillExportService {
   static const _invoiceKey = 'kutbi_invoice_number';

@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -102,7 +101,7 @@ class _GlassOrderStackState extends State<GlassOrderStack> with SingleTickerProv
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -222,7 +221,7 @@ class _GlassOrderStackState extends State<GlassOrderStack> with SingleTickerProv
                 child: ListView.separated(
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: order.items.length > 3 ? 3 : order.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, i) {
                     final item = order.items[i];
                     return Row(

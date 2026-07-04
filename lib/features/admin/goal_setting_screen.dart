@@ -394,7 +394,7 @@ class _GoalSettingScreenState extends ConsumerState<GoalSettingScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: brand,
+                      initialValue: brand,
                       decoration: const InputDecoration(
                         labelText: 'Brand',
                         prefixIcon: Icon(

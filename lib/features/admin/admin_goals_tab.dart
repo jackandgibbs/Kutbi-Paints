@@ -157,17 +157,17 @@ class _AdminGoalsTabState extends ConsumerState<AdminGoalsTab> {
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 blurRadius: 16,
                 offset: const Offset(-6, -6),
               ),
               BoxShadow(
-                color: const Color(0xFFD1CCC4).withOpacity(0.7),
+                color: const Color(0xFFD1CCC4).withValues(alpha: 0.7),
                 blurRadius: 16,
                 offset: const Offset(6, 6),
               ),
               BoxShadow(
-                color: glowColor.withOpacity(0.08),
+                color: glowColor.withValues(alpha: 0.08),
                 blurRadius: 24,
                 spreadRadius: -4,
               ),
@@ -179,16 +179,16 @@ class _AdminGoalsTabState extends ConsumerState<AdminGoalsTab> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: glowColor.withOpacity(0.12),
+                  color: glowColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       blurRadius: 6,
                       offset: const Offset(-2, -2),
                     ),
                     BoxShadow(
-                      color: const Color(0xFFD1CCC4).withOpacity(0.4),
+                      color: const Color(0xFFD1CCC4).withValues(alpha: 0.4),
                       blurRadius: 6,
                       offset: const Offset(2, 2),
                     ),
@@ -225,7 +225,7 @@ class _AdminGoalsTabState extends ConsumerState<AdminGoalsTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: (badgeColor ?? glowColor).withOpacity(0.12),
+                          color: (badgeColor ?? glowColor).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -243,7 +243,7 @@ class _AdminGoalsTabState extends ConsumerState<AdminGoalsTab> {
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: AppColors.textSlateLight.withOpacity(0.5),
+                color: AppColors.textSlateLight.withValues(alpha: 0.5),
                 size: 18,
               ),
             ],

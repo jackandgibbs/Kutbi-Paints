@@ -8,7 +8,6 @@ import '../../services/data_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/order_model.dart';
 import '../shared/widgets/product_image.dart';
-import '../../core/widgets/clay_card.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -92,7 +91,7 @@ class CartScreen extends ConsumerWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
@@ -170,7 +169,7 @@ class CartScreen extends ConsumerWidget {
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20, offset: const Offset(0, -5)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, -5)),
         ],
       ),
       child: SafeArea(
@@ -205,7 +204,7 @@ class CartScreen extends ConsumerWidget {
                   backgroundColor: AppColors.primary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   elevation: 4,
-                  shadowColor: AppColors.primary.withOpacity(0.4),
+                  shadowColor: AppColors.primary.withValues(alpha: 0.4),
                 ),
                 child: Text(
                   'Request Bill',
@@ -288,10 +287,10 @@ class CartScreen extends ConsumerWidget {
     if (confirmed != true) return;
 
     try {
-      // Group items by brand (actually for now we just create one order per brand or one big order)
-      // The user requested a general "Add to Cart", so we'll create one order with all items.
-      // Note: OrderModel has a 'brand' field. If items are mixed, we can use 'Mixed' or the first item's brand.
-      final brand = cart.first.productId.contains('tool') ? 'Tools' : 'Asian Paints'; // Simplified logic
+      // Determine the brand from the actual products in the cart
+      // Get the brand from the first product in the cart
+      final firstProduct = ref.read(dataServiceProvider).getProductById(cart.first.productId);
+      final brand = firstProduct?.brand ?? 'Asian Paints'; // Fallback to Asian Paints if product not found
 
       final orderItems = cart.map((item) {
         final product = ref.read(dataServiceProvider).getProductById(item.productId);

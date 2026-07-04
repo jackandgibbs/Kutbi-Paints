@@ -51,7 +51,7 @@ class ProductImage extends ConsumerWidget {
             ? Image.network(
                 effectiveUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _buildPlaceholder(brandColor),
+                errorBuilder: (_, _, _) => _buildPlaceholder(brandColor),
                 loadingBuilder: (context, child, loadingProgress) {
                   if (loadingProgress == null) {
                     return AnimatedOpacity(

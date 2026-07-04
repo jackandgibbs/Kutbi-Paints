@@ -543,8 +543,9 @@ class OrderDetailScreen extends ConsumerWidget {
     
     // Fallback for legacy statuses
     if (currentIdx == -1) {
-      if (order.status == 'bill_sent' || order.status == 'billed' || order.status == 'udhaari_requested') currentIdx = 0;
-      else if (order.status == 'placed' || order.status == 'udhaari_pending_approval') currentIdx = 1; // 'placed'/'udhaari_pending_approval' maps to 'accepted'
+      if (order.status == 'bill_sent' || order.status == 'billed' || order.status == 'udhaari_requested') {
+        currentIdx = 0;
+      } else if (order.status == 'placed' || order.status == 'udhaari_pending_approval') currentIdx = 1; // 'placed'/'udhaari_pending_approval' maps to 'accepted'
       else if (order.isConfirmed) currentIdx = 1;
     }
 

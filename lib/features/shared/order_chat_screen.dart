@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
-import '../../providers/auth_provider.dart';
-import '../../services/data_service.dart';
-import '../../core/services/haptic_service.dart';
 
 import '../shared/widgets/chat_coming_soon_view.dart';
 

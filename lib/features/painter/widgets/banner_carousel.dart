@@ -77,7 +77,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                     child: Image.network(
                       banner.imageUrl,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (_, _, _) => Container(
                         height: 300,
                         color: Colors.grey.shade900,
                         child: const Icon(Icons.broken_image_rounded,
@@ -148,7 +148,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                       Image.network(
                         banner.imageUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           color: Colors.grey.shade200,
                           child: const Icon(Icons.image_outlined,
                               size: 48, color: Colors.grey),

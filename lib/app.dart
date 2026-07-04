@@ -104,7 +104,7 @@ class _KutbiPaintsAppState extends ConsumerState<KutbiPaintsApp> {
                                 child: BackdropFilter(
                                   filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
                                   child: Container(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Colors.white.withValues(alpha: 0.3),
                                     child: const Center(
                                       child: LottieLoadingWidget(
                                         message: 'Refreshing...',

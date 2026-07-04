@@ -82,7 +82,7 @@ class _GlassBrandCardState extends State<GlassBrandCard> {
                           width: 56,
                           height: 56,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorBuilder: (_, _, _) => Icon(
                             widget.icon ?? Icons.format_paint_rounded,
                             color: Colors.white,
                             size: 26,

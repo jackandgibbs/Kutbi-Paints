@@ -79,7 +79,7 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                   
                   // Brand Filter
                   DropdownButtonFormField<String>(
-                    value: _selectedBrand,
+                    initialValue: _selectedBrand,
                     decoration: InputDecoration(
                       labelText: 'Applies to Brand',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -236,8 +236,8 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.adminPrimary,
-        child: const Icon(Icons.add_rounded, color: Colors.white),
         onPressed: _showAddPromotionSheet,
+        child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
       body: promos.isEmpty
           ? const Center(child: Text('No active promotions'))

@@ -217,7 +217,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                                 height: 200,
                                 width: 200,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                                errorBuilder: (_, _, _) => Container(
                                   height: 200,
                                   width: 200,
                                   color: Colors.grey.shade100,
@@ -256,7 +256,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                             backgroundColor: Colors.white,
                             foregroundColor: AppColors.adminPrimary,
                             elevation: 0,
-                            side: BorderSide(color: AppColors.adminPrimary.withOpacity(0.5)),
+                            side: BorderSide(color: AppColors.adminPrimary.withValues(alpha: 0.5)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
@@ -352,7 +352,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                     title: Text('Enable Force Update', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
                     subtitle: Text('Users will be blocked until they update', style: GoogleFonts.poppins(fontSize: 11)),
                     value: _forceUpdateEnabled,
-                    activeColor: AppColors.adminPrimary,
+                    activeThumbColor: AppColors.adminPrimary,
                     onChanged: (val) => setState(() => _forceUpdateEnabled = val),
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -437,7 +437,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                   shadowColor: Colors.black12,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.adminPrimary.withOpacity(0.3)),
+                    side: BorderSide(color: AppColors.adminPrimary.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -534,7 +534,7 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
               width: 72,
               height: 52,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
+              errorBuilder: (_, _, _) => Container(
                 width: 72,
                 height: 52,
                 color: Colors.grey.shade200,

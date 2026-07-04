@@ -76,7 +76,7 @@ class PainterUdhaariScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF7C3AED).withOpacity(0.1),
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.account_balance_wallet_rounded, size: 20, color: Color(0xFF7C3AED)),
@@ -286,12 +286,12 @@ class _UdhaariCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.85),
+            color: Colors.white.withValues(alpha: 0.85),
             blurRadius: 14,
             offset: const Offset(-6, -6),
           ),
           BoxShadow(
-            color: const Color(0xFFD1CCC4).withOpacity(0.65),
+            color: const Color(0xFFD1CCC4).withValues(alpha: 0.65),
             blurRadius: 14,
             offset: const Offset(6, 6),
           ),
@@ -332,7 +332,7 @@ class _UdhaariCard extends StatelessWidget {
                       ),
                       if ((order.udhaariInterestAmount ?? 0) > 0)
                         Text(
-                          'Incl. ₹${order.udhaariInterestAmount!.toStringAsFixed(0)} interest',
+                          'Incl. ₹${order.udhaariInterestAmount.toStringAsFixed(0)} interest',
                           style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
                         ),
                     ],
@@ -408,10 +408,10 @@ class _UdhaariCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
                 color: isToBeRevealed
-                    ? const Color(0xFFFF9800).withOpacity(0.1)
+                    ? const Color(0xFFFF9800).withValues(alpha: 0.1)
                     : isPending
                         ? Colors.orange.shade50
-                        : const Color(0xFF059669).withOpacity(0.1),
+                        : const Color(0xFF059669).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(

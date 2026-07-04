@@ -51,7 +51,6 @@ import '../features/admin/admin_analytics_screen.dart';
 import '../features/admin/scanner_screen.dart';
 import '../features/admin/admin_payments_screen.dart';
 import '../features/admin/admin_settings_screen.dart';
-import '../features/admin/pending_bills_screen.dart';
 import '../features/admin/generated_bills_screen.dart';
 import '../features/admin/admin_pin_reset_screen.dart';
 import '../features/admin/stock_management_screen.dart';
@@ -74,7 +73,7 @@ import '../features/admin/admin_bank_details_screen.dart';
 /// `'_dependents.isEmpty': is not true` on the next navigation (pop/push).
 class _AuthRouterRefresh extends ChangeNotifier {
   _AuthRouterRefresh(Ref ref) {
-    ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(authProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -85,7 +84,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   // Smooth fade + subtle scale transition for all pages
-  CustomTransitionPage<void> _fadeTransitionPage({
+  CustomTransitionPage<void> fadeTransitionPage({
     required Widget child,
     required GoRouterState state,
   }) {
@@ -218,14 +217,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ─── Painter Routes ──────────────────────────────
       GoRoute(
         path: '/painter',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterHomeScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/complete-selfie',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const CompleteSelfieScreen(),
         ),
@@ -236,7 +235,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final brand = Uri.decodeComponent(state.pathParameters['brand']!);
           // Every dynamically-created brand renders with the shared, Birla-Opus
           // style template (same structure/navigation), differing only in data.
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: BrandProductScreen(brand: brand),
           );
@@ -244,28 +243,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/painter/birla-opus',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const BirlaOpusScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/berger',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const BergerScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/asian-paints',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AsianPaintsScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/tools',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const ToolsScreen(),
         ),
@@ -277,7 +276,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final productId = state.uri.queryParameters['productId'];
           final size = state.uri.queryParameters['size'];
           final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: OrderFormScreen(
               brand: brand,
@@ -295,7 +294,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final size = state.uri.queryParameters['size'];
           final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
           final canCustomize = state.uri.queryParameters['canCustomize'] != 'false';
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: OrderItemScreen(
               productId: productId,
@@ -308,7 +307,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/painter/orders',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const OrderHistoryScreen(),
         ),
@@ -317,7 +316,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/painter/order-detail/:orderId',
         pageBuilder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: OrderDetailScreen(orderId: orderId),
           );
@@ -325,7 +324,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/chats',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const GlobalChatListScreen(),
         ),
@@ -334,7 +333,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/order/:orderId/chat',
         pageBuilder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: OrderChatScreen(orderId: orderId),
           );
@@ -343,42 +342,42 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/painter/profile',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterProfileScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/scanner',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterScannerScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/rewards',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterRewardsScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/rewards/history',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterRewardsHistoryScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/analytics',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterAnalyticsScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/cart',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const CartScreen(),
         ),
@@ -386,14 +385,14 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/painter/bank-details',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterBankDetailsScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/bank-rejected',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterBankRejectedScreen(),
         ),
@@ -401,28 +400,28 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/painter/ledger',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterLedgerScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/pending-debt',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PendingDebtScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/bills',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterBillsScreen(),
         ),
       ),
       GoRoute(
         path: '/painter/udhaari',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterUdhaariScreen(),
         ),
@@ -431,35 +430,35 @@ final routerProvider = Provider<GoRouter>((ref) {
       // ─── Admin Routes ────────────────────────────────
       GoRoute(
         path: '/admin',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminMainScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/users',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const UserManagementScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/add-painter',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AddPainterScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/inventory',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const InventoryScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/add-product',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AddProductScreen(),
         ),
@@ -468,7 +467,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/edit-product/:productId',
         pageBuilder: (context, state) {
           final productId = state.pathParameters['productId']!;
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: AddProductScreen(productId: productId),
           );
@@ -476,7 +475,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/orders',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const OrderManagementScreen(),
         ),
@@ -485,7 +484,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/order-detail/:orderId',
         pageBuilder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: OrderDetailAdminScreen(orderId: orderId),
           );
@@ -495,7 +494,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/user-activity/:painterId',
         pageBuilder: (context, state) {
           final painterId = state.pathParameters['painterId']!;
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: UserActivityScreen(painterId: painterId),
           );
@@ -503,126 +502,126 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/goals',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const GoalSettingScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/analytics',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminAnalyticsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/reward-points',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminRewardPointsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/payments',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminPaymentsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/scanner',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const ScannerScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/promotions',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminPromotionsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/settings',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminSettingsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/qr-generator',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminQRGeneratorScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/deleted-qrs',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const DeletedQRsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/pending-bills',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminPendingBillsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/generated-bills',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const GeneratedBillsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/stock-management',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const StockManagementScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/points-history',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PointsHistoryScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/reset-pin',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminPinResetScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/commissions',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminCommissionsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/reset-points',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminResetPointsScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/brands',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const BrandsCategoriesScreen(),
         ),
       ),
       GoRoute(
         path: '/admin/bank-details',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminBankDetailsScreen(),
         ),
@@ -631,7 +630,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/admin/brand-detail/:brand',
         pageBuilder: (context, state) {
           final brand = Uri.decodeComponent(state.pathParameters['brand']!);
-          return _fadeTransitionPage(
+          return fadeTransitionPage(
             state: state,
             child: BrandDetailScreen(brandName: brand),
           );
@@ -639,14 +638,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin-secret-login',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminSecretLoginScreen(),
         ),
       ),
       GoRoute(
         path: '/admin-dashboard',
-        pageBuilder: (context, state) => _fadeTransitionPage(
+        pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const AdminDashboardScreen(),
         ),

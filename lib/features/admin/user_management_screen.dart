@@ -411,7 +411,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
                                         memCacheHeight: 96,
                                         fadeInDuration:
                                             const Duration(milliseconds: 150),
-                                        errorWidget: (_, __, ___) => Center(
+                                        errorWidget: (_, _, _) => Center(
                                           child: Text(
                                             user.name.substring(0, 1).toUpperCase(),
                                             style: GoogleFonts.poppins(
@@ -870,9 +870,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
                 child: CachedNetworkImage(
                   imageUrl: url,
                   fit: BoxFit.contain,
-                  placeholder: (_, __) => const Center(
+                  placeholder: (_, _) => const Center(
                       child: CircularProgressIndicator(color: Colors.white)),
-                  errorWidget: (_, __, ___) => const Center(
+                  errorWidget: (_, _, _) => const Center(
                     child: Icon(Icons.broken_image_rounded,
                         color: Colors.white54, size: 64),
                   ),

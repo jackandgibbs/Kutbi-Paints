@@ -130,15 +130,15 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
             constraints: const BoxConstraints(maxWidth: 400),
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(28),
               border: Border.all(
-                color: Colors.white.withOpacity(0.25),
+                color: Colors.white.withValues(alpha: 0.25),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
+                  color: Colors.black.withValues(alpha: 0.25),
                   blurRadius: 40,
                   spreadRadius: -5,
                 ),
@@ -155,7 +155,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444).withOpacity(0.15),
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Icon(Icons.logout_rounded,
@@ -191,10 +191,10 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
                             child: Container(
                               height: 48,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.white.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.15),
+                                  color: Colors.white.withValues(alpha: 0.15),
                                 ),
                               ),
                               child: Center(
@@ -232,7 +232,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
                                 boxShadow: [
                                   BoxShadow(
                                     color: const Color(0xFFEF4444)
-                                        .withOpacity(0.4),
+                                        .withValues(alpha: 0.4),
                                     blurRadius: 16,
                                     offset: const Offset(0, 4),
                                   ),

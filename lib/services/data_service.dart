@@ -3261,8 +3261,6 @@ b.createdAt.compareTo(a.createdAt));
     } else {
       qr = _qrCodes[i];
     }
-
-    if (qr == null) return 'invalid';
     if (qr.status == 'used') return 'used';
     if (qr.status == 'expired' || qr.status == 'archived') return 'expired';
 

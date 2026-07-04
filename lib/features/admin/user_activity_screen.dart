@@ -81,7 +81,7 @@ class UserActivityScreen extends ConsumerWidget {
                             width: 64,
                             height: 64,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Center(
+                            errorBuilder: (_, _, _) => Center(
                               child: Text(
                                 painter.name[0].toUpperCase(),
                                 style: GoogleFonts.poppins(

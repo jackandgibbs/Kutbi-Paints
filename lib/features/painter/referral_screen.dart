@@ -210,7 +210,7 @@ class ReferralScreen extends ConsumerWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: referrals.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (context, i) {
                   // referrals[i]
                   // In a real app, we'd fetch the referred painter's name

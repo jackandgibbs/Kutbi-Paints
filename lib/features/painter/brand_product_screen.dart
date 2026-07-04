@@ -183,7 +183,7 @@ class _BrandProductScreenState extends ConsumerState<BrandProductScreen> {
                   height: 90,
                   fit: BoxFit.contain,
                   fadeInDuration: const Duration(milliseconds: 150),
-                  errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                  errorWidget: (_, _, _) => const SizedBox.shrink(),
                 ),
               )
             else
@@ -255,7 +255,7 @@ class _BrandProductScreenState extends ConsumerState<BrandProductScreen> {
         key: key,
         padding: const EdgeInsets.all(20),
         itemCount: 6,
-        itemBuilder: (_, __) => const BrandCardSkeleton(),
+        itemBuilder: (_, _) => const BrandCardSkeleton(),
       );
     }
 
@@ -479,7 +479,7 @@ class _BrandProductScreenState extends ConsumerState<BrandProductScreen> {
           childAspectRatio: 0.7,
         ),
         itemCount: 6,
-        itemBuilder: (_, __) => const InventoryItemSkeleton(),
+        itemBuilder: (_, _) => const InventoryItemSkeleton(),
       );
     }
 

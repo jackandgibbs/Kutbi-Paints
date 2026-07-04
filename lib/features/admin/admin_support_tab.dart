@@ -96,8 +96,8 @@ class _AdminSupportTabState extends ConsumerState<AdminSupportTab> {
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
                                       colors: [
-                                        const Color(0xFF8B5CF6).withOpacity(0.08),
-                                        const Color(0xFF6366F1).withOpacity(0.04),
+                                        const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                                        const Color(0xFF6366F1).withValues(alpha: 0.04),
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(18),
@@ -109,7 +109,7 @@ class _AdminSupportTabState extends ConsumerState<AdminSupportTab> {
                                         width: 64,
                                         height: 64,
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(20),
                                         ),
                                         child: const Icon(
@@ -148,7 +148,7 @@ class _AdminSupportTabState extends ConsumerState<AdminSupportTab> {
                                       width: 44,
                                       height: 44,
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(14),
                                       ),
                                       child: const Icon(
@@ -220,14 +220,14 @@ class _AdminSupportTabState extends ConsumerState<AdminSupportTab> {
         ),
         child: Column(
           children: [
-            Icon(Icons.chat_bubble_outline_rounded, size: 40, color: AppColors.textSlateLight.withOpacity(0.3)),
+            Icon(Icons.chat_bubble_outline_rounded, size: 40, color: AppColors.textSlateLight.withValues(alpha: 0.3)),
             const SizedBox(height: 12),
             Text(
               'No active conversations',
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: AppColors.textSlateLight.withOpacity(0.6),
+                color: AppColors.textSlateLight.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -242,7 +242,7 @@ class _AdminSupportTabState extends ConsumerState<AdminSupportTab> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: previewList.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final order = previewList[index];
           final lastMsg = ds.getLastMessageForOrder(order.id);
@@ -281,7 +281,7 @@ class _AdminSupportTabState extends ConsumerState<AdminSupportTab> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.person_outline_rounded, color: Color(0xFF8B5CF6), size: 22),

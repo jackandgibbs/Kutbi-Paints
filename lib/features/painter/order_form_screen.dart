@@ -42,7 +42,7 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
   final List<_OrderItemEntry> _items = [];
 
   bool _isFetchingLocation = false;
-  bool _addingToCart = false;
+  final bool _addingToCart = false;
 
   late final AnimationController _staggerController;
 
@@ -196,17 +196,22 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         List<String> addressParts = [];
-        if (place.street != null && place.street!.isNotEmpty)
+        if (place.street != null && place.street!.isNotEmpty) {
           addressParts.add(place.street!);
-        if (place.subLocality != null && place.subLocality!.isNotEmpty)
+        }
+        if (place.subLocality != null && place.subLocality!.isNotEmpty) {
           addressParts.add(place.subLocality!);
-        if (place.locality != null && place.locality!.isNotEmpty)
+        }
+        if (place.locality != null && place.locality!.isNotEmpty) {
           addressParts.add(place.locality!);
+        }
         if (place.administrativeArea != null &&
-            place.administrativeArea!.isNotEmpty)
+            place.administrativeArea!.isNotEmpty) {
           addressParts.add(place.administrativeArea!);
-        if (place.postalCode != null && place.postalCode!.isNotEmpty)
+        }
+        if (place.postalCode != null && place.postalCode!.isNotEmpty) {
           addressParts.add(place.postalCode!);
+        }
 
         final address = addressParts.join(', ');
         _siteLocationCtrl.text = address;
@@ -946,7 +951,7 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
                       ),
                     )
                   : DropdownButtonFormField<String>(
-                      value: item.selectedSize,
+                      initialValue: item.selectedSize,
                       decoration: const InputDecoration(
                         labelText: 'Bucket Size',
                         prefixIcon: Icon(Icons.straighten_rounded),
@@ -1086,8 +1091,9 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
   String _productLabel(ProductModel p) {
     final hasCode = _hasValue(p.colorCode);
     final hasName = _hasValue(p.colorName);
-    if (hasCode && hasName)
+    if (hasCode && hasName) {
       return '${p.colorCode.trim()} - ${p.colorName.trim()}';
+    }
     if (hasCode) return '${p.name} (${p.colorCode.trim()})';
     if (hasName) return '${p.name} - ${p.colorName.trim()}';
     return p.name.isNotEmpty ? p.name : 'Unnamed Product';
@@ -1181,8 +1187,9 @@ class _ProductSearchSheetState extends State<_ProductSearchSheet> {
   String _productLabel(ProductModel p) {
     final hasCode = _hasValue(p.colorCode);
     final hasName = _hasValue(p.colorName);
-    if (hasCode && hasName)
+    if (hasCode && hasName) {
       return '${p.colorCode.trim()} - ${p.colorName.trim()}';
+    }
     if (hasCode) return '${p.name} (${p.colorCode.trim()})';
     if (hasName) return '${p.name} - ${p.colorName.trim()}';
     return p.name.isNotEmpty ? p.name : 'Unnamed Product';

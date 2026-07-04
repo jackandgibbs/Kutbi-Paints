@@ -21,7 +21,7 @@ class ChatComingSoonView extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF25D366).withOpacity(0.1),
+                color: const Color(0xFF25D366).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -70,7 +70,7 @@ class ChatComingSoonView extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(30),
                 ),
                 elevation: 8,
-                shadowColor: const Color(0xFF25D366).withOpacity(0.4),
+                shadowColor: const Color(0xFF25D366).withValues(alpha: 0.4),
                 textStyle: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -132,7 +132,7 @@ class ChatComingSoonView extends ConsumerWidget {
                     shrinkWrap: true,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     itemCount: admins.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final admin = admins[index];
                       return ListTile(

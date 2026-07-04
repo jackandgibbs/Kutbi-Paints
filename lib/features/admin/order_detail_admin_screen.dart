@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,7 +21,7 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
   final _amountCtrl = TextEditingController();
   final _interestRateCtrl = TextEditingController(text: '0');
   String? _uploadedBillUrl;
-  bool _isUploading = false;
+  final bool _isUploading = false;
 
   @override
   void dispose() {
@@ -378,9 +377,9 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   children: [
@@ -425,8 +424,9 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
     if (currentIdx == -1 && order.status == 'cancelled') return const Text('Order Cancelled');
     
     if (currentIdx == -1) {
-      if (order.status == 'pending_bill' || order.status == 'bill_sent' || order.status == 'billed' || order.status == 'udhaari_pending_approval') currentIdx = 0;
-      else if (order.isConfirmed) currentIdx = 1;
+      if (order.status == 'pending_bill' || order.status == 'bill_sent' || order.status == 'billed' || order.status == 'udhaari_pending_approval') {
+        currentIdx = 0;
+      } else if (order.isConfirmed) currentIdx = 1;
     }
 
     return Column(

@@ -10,7 +10,15 @@
       "Bash(cd *)",
       "Bash(flutter analyze *)",
       "Bash(cd /Users/dev/workspace-0711b89b)",
-      "Bash(ls)"
+      "Bash(ls)",
+      "Bash(grep -oE \" - [a-z_]+$\")",
+      "Bash(ls android/app/build.gradle*)",
+      "Bash(cat android/app/build.gradle)",
+      "Bash(cat android/app/build.gradle.kts)",
+      "Bash(ls android/key.properties android/app/key.properties)",
+      "Bash(dart fix *)",
+      "Bash(ls android/app/src/debug/AndroidManifest.xml android/app/src/profile/AndroidManifest.xml)",
+      "Bash(grep -h \"INTERNET\" android/app/src/debug/AndroidManifest.xml android/app/src/profile/AndroidManifest.xml)"
     ]
   }
 }

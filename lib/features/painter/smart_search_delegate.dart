@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 import '../../services/data_service.dart';
 import '../../models/product_model.dart';
-import 'dart:math' as math;
 
 class SmartSearchDelegate extends SearchDelegate {
   final WidgetRef ref;

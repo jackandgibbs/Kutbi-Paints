@@ -207,7 +207,7 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(children: [
                   Expanded(flex: 3, child: Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)]),
                     child: TextField(
                       controller: _searchCtrl, onChanged: (v) => setState(() => _search = v),
                       decoration: InputDecoration(hintText: 'Search products...', hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 13), prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.adminPrimary), border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(vertical: 14)),
@@ -216,7 +216,7 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
                   const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)]),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -269,7 +269,7 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
   Widget _stat(String label, String value, IconData icon, Color color) {
     return Expanded(child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8)]),
       child: Column(children: [
         Icon(icon, size: 20, color: color),
         const SizedBox(height: 6),
@@ -310,7 +310,7 @@ class _ProductCardState extends State<_ProductCard> {
     final l = status == 'out_of_stock' ? 'Out of Stock' : status == 'low_stock' ? 'Low Stock' : 'In Stock';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: c.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(l, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: c)),
     );
   }
@@ -370,7 +370,7 @@ class _ProductCardState extends State<_ProductCard> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
       child: Column(children: [
         InkWell(
           onTap: () => setState(() => _expanded = !_expanded),
@@ -482,7 +482,7 @@ class _ProductCardState extends State<_ProductCard> {
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.adminPrimary.withOpacity(0.2))),
+        decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.adminPrimary.withValues(alpha: 0.2))),
         alignment: Alignment.center,
         child: Text('$value', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSlate)),
       ),

@@ -500,7 +500,7 @@ class _BrandsCategoriesScreenState extends ConsumerState<BrandsCategoriesScreen>
                 ),
                 child: brand.hasLogo
                     ? Image.network(brand.logoUrl!, fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => _brandInitial(brand.name, primary))
+                        errorBuilder: (_, _, _) => _brandInitial(brand.name, primary))
                     : _brandInitial(brand.name, primary),
               ),
               const SizedBox(width: 16),

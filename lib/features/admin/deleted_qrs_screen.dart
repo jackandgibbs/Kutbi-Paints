@@ -20,7 +20,7 @@ class _DeletedQRsScreenState extends ConsumerState<DeletedQRsScreen> {
   final _dateFormat = DateFormat('MMM d, yyyy hh:mm a');
   String _searchQuery = '';
   int _currentPage = 0;
-  int _rowsPerPage = 10;
+  final int _rowsPerPage = 10;
 
   List<_DeletedBatchSummary> _buildDeletedSummaries(List<QRCodeModel> deletedQrs) {
     final grouped = <String, List<QRCodeModel>>{};

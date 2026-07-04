@@ -198,7 +198,7 @@ class _OrderManagementScreenState
         ? ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: 5,
-            itemBuilder: (_, __) => const OrderTileSkeleton(),
+            itemBuilder: (_, _) => const OrderTileSkeleton(),
           )
         : Center(
             child: ConstrainedBox(

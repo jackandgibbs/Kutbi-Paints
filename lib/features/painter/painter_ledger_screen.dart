@@ -145,7 +145,7 @@ class PainterLedgerScreen extends ConsumerWidget {
                     : ListView.separated(
                         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                         itemCount: entries.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
                         itemBuilder: (ctx, i) {
                           final e = entries[i];
                           return Container(

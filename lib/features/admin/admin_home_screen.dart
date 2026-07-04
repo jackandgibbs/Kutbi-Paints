@@ -165,13 +165,13 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                                   borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.white.withOpacity(0.7),
+                                      color: Colors.white.withValues(alpha: 0.7),
                                       blurRadius: 4,
                                       offset: const Offset(-2, -2),
                                     ),
                                     BoxShadow(
                                       color: const Color(0xFFD1CCC4)
-                                          .withOpacity(0.5),
+                                          .withValues(alpha: 0.5),
                                       blurRadius: 4,
                                       offset: const Offset(2, 2),
                                     ),
@@ -311,7 +311,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                               controller: _lowStockScrollController,
                               scrollDirection: Axis.horizontal,
                               itemCount: lowStockAlerts.take(5).length,
-                              separatorBuilder: (_, _a) =>
+                              separatorBuilder: (_, a) =>
                                   const SizedBox(width: 10),
                               itemBuilder: (ctx, i) {
                                 final alert = lowStockAlerts[i];
@@ -335,15 +335,15 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.white.withOpacity(0.7),
+                                        color: Colors.white.withValues(alpha: 0.7),
                                         blurRadius: 6,
                                         offset: const Offset(-3, -3),
                                       ),
                                       BoxShadow(
                                         color: isCritical
-                                            ? AppColors.error.withOpacity(0.15)
+                                            ? AppColors.error.withValues(alpha: 0.15)
                                             : const Color(0xFFD1CCC4)
-                                                .withOpacity(0.5),
+                                                .withValues(alpha: 0.5),
                                         blurRadius: isCritical ? 16 : 8,
                                         offset: const Offset(3, 3),
                                       ),
@@ -351,7 +351,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                                     gradient: isCritical
                                         ? LinearGradient(
                                             colors: [
-                                              AppColors.error.withOpacity(0.07),
+                                              AppColors.error.withValues(alpha: 0.07),
                                               const Color(0xFFF0EDE8),
                                             ],
                                             begin: Alignment.centerLeft,
@@ -533,12 +533,12 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.6),
+            color: Colors.white.withValues(alpha: 0.6),
             blurRadius: 3,
             offset: const Offset(-1, -1),
           ),
           BoxShadow(
-            color: const Color(0xFFD1CCC4).withOpacity(0.4),
+            color: const Color(0xFFD1CCC4).withValues(alpha: 0.4),
             blurRadius: 3,
             offset: const Offset(1, 1),
           ),
@@ -619,12 +619,12 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.white.withOpacity(0.5),
+                        color: Colors.white.withValues(alpha: 0.5),
                         blurRadius: 3,
                         offset: const Offset(-1, -1),
                       ),
                       BoxShadow(
-                        color: const Color(0xFFD1CCC4).withOpacity(0.3),
+                        color: const Color(0xFFD1CCC4).withValues(alpha: 0.3),
                         blurRadius: 3,
                         offset: const Offset(1, 1),
                       ),
@@ -638,7 +638,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.08),
+                      color: color.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -719,7 +719,7 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
                           show: true,
                           color:
                               (trendUp ? AppColors.success : AppColors.error)
-                                  .withOpacity(0.10),
+                                  .withValues(alpha: 0.10),
                         ),
                       ),
                     ],
@@ -770,12 +770,12 @@ class _AdminHomeScreenState extends ConsumerState<AdminHomeScreen>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.white.withOpacity(0.85),
+            color: Colors.white.withValues(alpha: 0.85),
             blurRadius: 14,
             offset: const Offset(-6, -6),
           ),
           BoxShadow(
-            color: const Color(0xFFD1CCC4).withOpacity(0.65),
+            color: const Color(0xFFD1CCC4).withValues(alpha: 0.65),
             blurRadius: 14,
             offset: const Offset(6, 6),
           ),

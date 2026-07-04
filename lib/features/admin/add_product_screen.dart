@@ -388,15 +388,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   final managedBrands = ds.getAllBrands().map((b) => b.name).toList();
                   final brandList = managedBrands.isNotEmpty
                       ? managedBrands
-                      : <String>[
+                      : <String>{
                           ..._baseBrands,
                           ...ds.getAllProducts()
                               .map((p) => p.brand)
                               .where((b) => b.isNotEmpty && !_baseBrands.contains(b)),
-                        ].toSet().toList();
+                        }.toList();
 
                   return DropdownButtonFormField<String>(
-                    value: _isCustomBrand ? 'ADD_NEW' : _brand,
+                    initialValue: _isCustomBrand ? 'ADD_NEW' : _brand,
                     decoration: const InputDecoration(
                       labelText: 'Brand',
                       prefixIcon: Icon(Icons.business_rounded, color: AppColors.primary),
@@ -447,7 +447,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   }
                   
                   return DropdownButtonFormField<String>(
-                    value: _category,
+                    initialValue: _category,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       prefixIcon: Icon(Icons.category_rounded, color: AppColors.primary),
@@ -500,7 +500,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   }
 
                   return DropdownButtonFormField<String>(
-                    value: _subCategory,
+                    initialValue: _subCategory,
                     decoration: const InputDecoration(
                       labelText: 'Sub Category',
                       prefixIcon: Icon(Icons.layers_rounded, color: AppColors.primary),
@@ -565,7 +565,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     'If enabled, painters must provide a shade code',
                     style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
                   ),
-                  activeColor: AppColors.adminPrimary,
+                  activeThumbColor: AppColors.adminPrimary,
                   secondary: Icon(Icons.format_color_fill_rounded, color: _hasColorShade ? AppColors.adminPrimary : AppColors.textLight),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -615,7 +615,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                   ],
                 ),
                 child: DropdownButtonFormField<String>(
-                  value: _unit,
+                  initialValue: _unit,
                   isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Unit',

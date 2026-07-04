@@ -20,7 +20,7 @@ class BrandDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
-  bool _isBusy = false;
+  final bool _isBusy = false;
 
   Future<void> _addCategory() async {
     final ctrl = TextEditingController();
@@ -174,7 +174,7 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                                       imageUrl: brand.logoUrl!,
                                       fit: BoxFit.cover,
                                       memCacheWidth: 160,
-                                      errorWidget: (_, __, ___) => const Icon(
+                                      errorWidget: (_, _, _) => const Icon(
                                           Icons.image_not_supported_rounded,
                                           size: 28,
                                           color: AppColors.adminPrimary)),
@@ -237,7 +237,7 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                                       width: double.infinity,
                                       fit: BoxFit.cover,
                                       memCacheWidth: 600,
-                                      errorWidget: (_, __, ___) => const Icon(
+                                      errorWidget: (_, _, _) => const Icon(
                                           Icons.image_not_supported_rounded,
                                           size: 26,
                                           color: AppColors.adminPrimary)),
@@ -572,7 +572,7 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                                 height: 80,
                                 fit: BoxFit.contain,
                                 fadeInDuration: const Duration(milliseconds: 150),
-                                errorWidget: (_, __, ___) => _logoFallback(primary),
+                                errorWidget: (_, _, _) => _logoFallback(primary),
                               ),
                             )
                           : _logoFallback(primary),
@@ -786,8 +786,8 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                             memCacheWidth: 80,
                             memCacheHeight: 80,
                             fadeInDuration: const Duration(milliseconds: 150),
-                            placeholder: (_, __) => const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight),
-                            errorWidget: (_, __, ___) =>
+                            placeholder: (_, _) => const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight),
+                            errorWidget: (_, _, _) =>
                                 const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight))
                         : const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight),
                   ),

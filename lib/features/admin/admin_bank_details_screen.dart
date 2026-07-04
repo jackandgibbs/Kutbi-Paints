@@ -402,7 +402,7 @@ class _BankPainterCardState extends State<_BankPainterCard> {
                             height: 160,
                             width: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorBuilder: (_, _, _) => Container(
                               height: 160,
                               color: Colors.grey.shade200,
                               child: const Center(

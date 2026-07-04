@@ -963,7 +963,7 @@ class _OrderPaymentCard extends ConsumerWidget {
                 if (order.paymentStatus == 'partially_paid')
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                     child: Text('Partially Paid: ₹${order.paidAmount}', style: GoogleFonts.poppins(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold)),
                   ),
               ],
@@ -1115,7 +1115,7 @@ class _OrderPaymentCard extends ConsumerWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF059669).withOpacity(0.1),
+                  color: const Color(0xFF059669).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -1274,7 +1274,7 @@ class _OrderPaymentCard extends ConsumerWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.success,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: AppColors.success.withOpacity(0.5),
+                  disabledBackgroundColor: AppColors.success.withValues(alpha: 0.5),
                 ),
                 child: isProcessing 
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -1364,7 +1364,7 @@ class _OrderPaymentCard extends ConsumerWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.warning,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppColors.warning.withOpacity(0.5),
+                    disabledBackgroundColor: AppColors.warning.withValues(alpha: 0.5),
                   ),
                   child: isProcessing 
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -1398,7 +1398,7 @@ class _OrderPaymentCard extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text('Amount: ₹${order.totalAmount.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 14)),
                 if ((order.udhaariInterestAmount ?? 0) > 0) ...[
-                  Text('Interest: ₹${order.udhaariInterestAmount!.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 14, color: Colors.red)),
+                  Text('Interest: ₹${order.udhaariInterestAmount.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 14, color: Colors.red)),
                   Text('Total Due: ₹${totalWithInterest.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700)),
                 ],
                 const SizedBox(height: 16),

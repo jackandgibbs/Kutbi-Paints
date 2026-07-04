@@ -48,7 +48,7 @@ class PointsHistoryScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
                   ),
                   child: ExpansionTile(
                     tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -57,7 +57,7 @@ class PointsHistoryScreen extends ConsumerWidget {
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
@@ -101,7 +101,7 @@ class PointsHistoryScreen extends ConsumerWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.1),
+                                color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text('${p['points']} pts', style: GoogleFonts.inter(color: AppColors.primary, fontWeight: FontWeight.w700)),

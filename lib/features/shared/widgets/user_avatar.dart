@@ -39,7 +39,7 @@ class UserAvatar extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _initial(),
+              errorBuilder: (_, _, _) => _initial(),
               loadingBuilder: (context, child, progress) =>
                   progress == null ? child : _initial(),
             )

@@ -261,7 +261,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
           ),
         ),
         bottomNavigationBar: Consumer(
-          builder: (_, cartRef, __) {
+          builder: (_, cartRef, _) {
             final cartItems = cartRef.watch(cartProvider);
             final cartCount = cartItems.fold<int>(0, (s, i) => s + i.quantity);
             return LiquidGlassNavbar(
@@ -1507,7 +1507,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
-                                errorBuilder: (_, __, ___) => Center(
+                                errorBuilder: (_, _, _) => Center(
                                   child: Text(
                                     user.name.isNotEmpty ? user.name.substring(0, 1).toUpperCase() : '?',
                                     style: GoogleFonts.poppins(

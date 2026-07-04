@@ -8,7 +8,6 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/platform_support.dart';
 import '../../core/utils/responsive.dart';
 import '../../services/data_service.dart';
-import '../../core/widgets/lottie_loading_widget.dart';
 import '../shared/widgets/skeleton_loaders.dart';
 
 class AdminInventoryTab extends ConsumerStatefulWidget {
@@ -188,7 +187,7 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: glowColor.withOpacity(0.12),
+                  color: glowColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(icon, color: glowColor, size: 26),
@@ -222,7 +221,7 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: (badgeColor ?? glowColor).withOpacity(0.12),
+                          color: (badgeColor ?? glowColor).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -240,7 +239,7 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: AppColors.textSlateLight.withOpacity(0.5),
+                color: AppColors.textSlateLight.withValues(alpha: 0.5),
                 size: 18,
               ),
             ],

@@ -19,12 +19,12 @@ class UIScaleController extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.15),
+          color: Colors.black.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -46,7 +46,7 @@ class UIScaleController extends ConsumerWidget {
                     height: 24,
                     width: 1,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                   ),
                 ],
                 _buildBtn(
@@ -66,7 +66,7 @@ class UIScaleController extends ConsumerWidget {
                         style: GoogleFonts.inter(
                           fontSize: 9,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           letterSpacing: 1.2,
                         ),
                       ),
@@ -92,7 +92,7 @@ class UIScaleController extends ConsumerWidget {
                   height: 24,
                   width: 1,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                 ),
                 _buildBtn(
                   icon: Icons.refresh_rounded,
@@ -115,7 +115,7 @@ class UIScaleController extends ConsumerWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: Colors.white, size: 20),

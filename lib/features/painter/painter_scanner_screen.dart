@@ -226,8 +226,8 @@ class _PainterScannerScreenState extends ConsumerState<PainterScannerScreen>
                           height: 250,
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: AppColors.primary.withOpacity(
-                                  0.6 + _pulseController.value * 0.4),
+                              color: AppColors.primary.withValues(
+                                  alpha: 0.6 + _pulseController.value * 0.4),
                               width: 3,
                             ),
                             borderRadius: BorderRadius.circular(30),
@@ -276,7 +276,7 @@ class _PainterScannerScreenState extends ConsumerState<PainterScannerScreen>
               borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 20,
                   offset: const Offset(0, -5),
                 ),
@@ -313,9 +313,9 @@ class _PainterScannerScreenState extends ConsumerState<PainterScannerScreen>
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.92),
+                          color: Colors.white.withValues(alpha: 0.92),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white.withOpacity(0.5)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
                         ),
                         child: TextField(
                           controller: _manualIdCtrl,
@@ -356,7 +356,7 @@ class _PainterScannerScreenState extends ConsumerState<PainterScannerScreen>
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withOpacity(0.4),
+                              color: AppColors.primary.withValues(alpha: 0.4),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -417,10 +417,10 @@ class _AlreadyScannedDialogState extends State<_AlreadyScannedDialog>
             decoration: BoxDecoration(
               color: const Color(0xFFA8E6CF), // App scaffold mint green
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withOpacity(0.8), width: 2),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
+                  color: Colors.black.withValues(alpha: 0.12),
                   blurRadius: 30,
                   spreadRadius: 2,
                 ),
@@ -434,7 +434,7 @@ class _AlreadyScannedDialogState extends State<_AlreadyScannedDialog>
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFFEF4444).withOpacity(0.12),
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.12),
                   ),
                   child: const Icon(
                     Icons.qr_code_2_rounded,
@@ -465,7 +465,7 @@ class _AlreadyScannedDialogState extends State<_AlreadyScannedDialog>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444).withOpacity(0.1),
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -604,12 +604,12 @@ class _CelebrationDialogState extends State<_CelebrationDialog>
                   color: const Color(0xFFA8E6CF), // App scaffold background (mint green)
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     width: 2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF1A237E).withOpacity(0.15),
+                      color: const Color(0xFF1A237E).withValues(alpha: 0.15),
                       blurRadius: 40,
                       spreadRadius: 5,
                     ),
@@ -629,7 +629,7 @@ class _CelebrationDialogState extends State<_CelebrationDialog>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFFD700).withOpacity(0.4),
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.4),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -666,7 +666,7 @@ class _CelebrationDialogState extends State<_CelebrationDialog>
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFFFD700).withOpacity(0.3),
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.3),
                             blurRadius: 16,
                           ),
                         ],
@@ -697,7 +697,7 @@ class _CelebrationDialogState extends State<_CelebrationDialog>
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.15),
+                          color: Colors.orange.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -774,7 +774,7 @@ class _ConfettiPainter extends CustomPainter {
       if (y > size.height || y < 0) continue;
 
       final paint = Paint()
-        ..color = p.color.withOpacity(opacity)
+        ..color = p.color.withValues(alpha: opacity)
         ..style = PaintingStyle.fill;
 
       canvas.save();
