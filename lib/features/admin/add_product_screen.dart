@@ -230,6 +230,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return;
     }
 
+    // Capture navigator + messenger from the *screen* context BEFORE any async
+    // work. This screen's Builder widgets watch dataServiceProvider, so they are
+    // registered as dependents. refresh() flips isLoaded and calls
+    // notifyListeners, which rebuilds/tears those dependents down — doing that
+    // while this screen is still mounted trips the '_dependents.isEmpty'
+    // framework assertion. We therefore pop FIRST, then refresh.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     setState(() => _isSaving = true);
 
     try {
@@ -272,20 +281,24 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         await ds.addProduct(product);
       }
 
-      await ds.refresh();
+      // updateProduct/addProduct already updated the local list and notified
+      // listeners, so the inventory/brand screens are up to date. Leave this
+      // screen BEFORE the global refresh so its watchers are detached first.
+      if (mounted) navigator.pop();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isEdit ? 'Product updated!' : 'Product added!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.pop(context);
-      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(_isEdit ? 'Product updated!' : 'Product added!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+
+      // Now safe: this screen is gone, so refresh()'s notifyListeners won't
+      // rebuild a mounted-but-being-torn-down dependent.
+      await ds.refresh();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Error saving product: $e'),
             backgroundColor: AppColors.error,

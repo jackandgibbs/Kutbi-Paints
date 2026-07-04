@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,73 +139,87 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
               Expanded(
                 child: RefreshIndicator(
                   onRefresh: ds.refresh,
-                  child: SingleChildScrollView(
+                  // CustomScrollView + slivers so product cards build lazily
+                  // (only what's on screen) instead of all at once — this is
+                  // what keeps scrolling smooth with a large inventory.
+                  child: CustomScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                    child: Column(
-                      children: [
-                        // Stats Row
-                        Row(
-                          children: ds.isLoaded 
-                            ? [
-                                _statCard('Low Stock', totalLowStock.toString(), AppColors.warning),
-                                const SizedBox(width: 12),
-                                _statCard('Out of Stock', totalOutOfStock.toString(), AppColors.error),
-                              ]
-                            : const [
-                                InventoryStatSkeleton(),
-                                SizedBox(width: 12),
-                                InventoryStatSkeleton(),
-                              ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Search Field
-                        TextField(
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                          decoration: InputDecoration(
-                            hintText: 'Search products by name or code...',
-                            hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.textLight),
-                            prefixIcon: const Icon(Icons.search_rounded, color: AppColors.adminPrimary, size: 20),
-                            filled: true,
-                            fillColor: Colors.white,
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: Colors.grey.shade200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(color: AppColors.adminPrimary, width: 1),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Brand Filters — derived from the brands table (dynamic)
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
+                    slivers: [
+                      // Stats + Search + Filters header block
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
                             children: [
-                              _filterChip('All', _selectedBrand == 'All'),
-                              ...ds.getAllBrands().map((b) =>
-                                  _filterChip(b.name, _selectedBrand == b.name)),
+                              // Stats Row
+                              Row(
+                                children: ds.isLoaded
+                                  ? [
+                                      _statCard('Low Stock', totalLowStock.toString(), AppColors.warning),
+                                      const SizedBox(width: 12),
+                                      _statCard('Out of Stock', totalOutOfStock.toString(), AppColors.error),
+                                    ]
+                                  : const [
+                                      InventoryStatSkeleton(),
+                                      SizedBox(width: 12),
+                                      InventoryStatSkeleton(),
+                                    ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Search Field
+                              TextField(
+                                onChanged: (v) => setState(() => _searchQuery = v),
+                                decoration: InputDecoration(
+                                  hintText: 'Search products by name or code...',
+                                  hintStyle: GoogleFonts.poppins(fontSize: 13, color: AppColors.textLight),
+                                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.adminPrimary, size: 20),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide(color: Colors.grey.shade200),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: const BorderSide(color: AppColors.adminPrimary, width: 1),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Brand Filters — derived from the brands table (dynamic)
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _filterChip('All', _selectedBrand == 'All'),
+                                    ...ds.getAllBrands().map((b) =>
+                                        _filterChip(b.name, _selectedBrand == b.name)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 16),
+                      ),
 
-                        // Product List
-                        if (!ds.isLoaded)
-                          ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: 5,
-                            itemBuilder: (context, index) => const InventoryItemSkeleton(),
-                          )
-                        else if (products.isEmpty)
-                          Padding(
+                      // Product List (lazy slivers)
+                      if (!ds.isLoaded)
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => const InventoryItemSkeleton(),
+                              childCount: 5,
+                            ),
+                          ),
+                        )
+                      else if (products.isEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
                             padding: const EdgeInsets.only(top: 60),
                             child: Column(
                               children: [
@@ -214,35 +229,37 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                                     style: GoogleFonts.poppins(color: AppColors.textSecondary)),
                               ],
                             ),
-                          )
-                        else
-                          Responsive.isDesktop(context) 
-                            ? GridView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 0,
-                                  childAspectRatio: 1.8,
-                                ),
-                                itemCount: products.length,
-                                itemBuilder: (context, index) {
-                                  return _buildProductListItem(products[index]);
-                                },
-                              )
-                            : ListView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: products.length,
-                                itemBuilder: (context, index) {
-                                  return _buildProductListItem(products[index]);
-                                },
-                              ),
-                      ],
-                    ),
+                          ),
+                        )
+                      else if (Responsive.isDesktop(context))
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverGrid(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 0,
+                              childAspectRatio: 1.8,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _buildProductListItem(products[index]),
+                              childCount: products.length,
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _buildProductListItem(products[index]),
+                              childCount: products.length,
+                            ),
+                          ),
+                        ),
+
+                      const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                    ],
                   ),
                 ),
               ),
@@ -420,10 +437,16 @@ class _InventoryScreenState extends ConsumerState<InventoryScreen> {
                     child: product.imageUrl != null && product.imageUrl!.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(11),
-                            child: Image.network(
-                              product.imageUrl!,
+                            child: CachedNetworkImage(
+                              imageUrl: product.imageUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
+                              // Displayed at 50px — decode small to keep memory low
+                              // and rendering fast (2x for high-DPI screens).
+                              memCacheWidth: 100,
+                              memCacheHeight: 100,
+                              fadeInDuration: const Duration(milliseconds: 150),
+                              placeholder: (context, url) => Container(color: color.withValues(alpha: 0.3)),
+                              errorWidget: (context, url, error) =>
                                   Container(color: color, child: const Icon(Icons.error_outline, size: 20, color: Colors.white)),
                             ),
                           )

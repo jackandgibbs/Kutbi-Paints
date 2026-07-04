@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -118,6 +120,7 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
   Future<void> _editBrand(BrandModel brand) async {
     final nameCtrl = TextEditingController(text: brand.name);
     File? newLogoFile;
+    File? newCoverFile;
     bool saving = false;
 
     await showDialog(
@@ -167,8 +170,11 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                           : brand.hasLogo
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(15),
-                                  child: Image.network(brand.logoUrl!, fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Icon(
+                                  child: CachedNetworkImage(
+                                      imageUrl: brand.logoUrl!,
+                                      fit: BoxFit.cover,
+                                      memCacheWidth: 160,
+                                      errorWidget: (_, __, ___) => const Icon(
                                           Icons.image_not_supported_rounded,
                                           size: 28,
                                           color: AppColors.adminPrimary)),
@@ -189,6 +195,69 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                   if (newLogoFile != null || brand.hasLogo)
                     TextButton.icon(
                       onPressed: () => setDlg(() => newLogoFile = null),
+                      style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                      icon: const Icon(Icons.refresh_rounded, size: 14),
+                      label: Text('Change', style: GoogleFonts.poppins(fontSize: 11)),
+                    ),
+                  const SizedBox(height: 12),
+
+                  // Cover image picker (wide banner used as the brand header on
+                  // the painter side, mirroring Birla Opus's cover)
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                        imageQuality: 85,
+                        maxWidth: 1000,
+                      );
+                      if (picked != null) setDlg(() => newCoverFile = File(picked.path));
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: AppColors.adminPrimary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.adminPrimary.withValues(alpha: 0.25),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: newCoverFile != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Image.file(newCoverFile!, width: double.infinity, fit: BoxFit.cover),
+                            )
+                          : brand.hasCover
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(15),
+                                  child: CachedNetworkImage(
+                                      imageUrl: brand.coverImageUrl!,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      memCacheWidth: 600,
+                                      errorWidget: (_, __, ___) => const Icon(
+                                          Icons.image_not_supported_rounded,
+                                          size: 26,
+                                          color: AppColors.adminPrimary)),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.image_rounded,
+                                        size: 26, color: AppColors.adminPrimary),
+                                    const SizedBox(height: 4),
+                                    Text('Add Cover Image (optional)',
+                                        style: GoogleFonts.poppins(
+                                            fontSize: 10, color: AppColors.adminPrimary)),
+                                  ],
+                                ),
+                    ),
+                  ),
+                  if (newCoverFile != null || brand.hasCover)
+                    TextButton.icon(
+                      onPressed: () => setDlg(() => newCoverFile = null),
                       style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
                       icon: const Icon(Icons.refresh_rounded, size: 14),
@@ -235,54 +304,92 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                   : () async {
                       final newName = nameCtrl.text.trim();
                       if (newName.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(ctx).showSnackBar(
                           const SnackBar(content: Text('Brand name is required')),
                         );
                         return;
                       }
+
+                      // Capture router + messenger from the *screen* context BEFORE
+                      // any async work. Doing the mutations (which call
+                      // notifyListeners) while this dialog is still mounted tears
+                      // the screen's InheritedElements down underneath the open
+                      // dialog and triggers the '_dependents.isEmpty' assertion.
+                      final router = GoRouter.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
+                      final ds = ref.read(dataServiceProvider);
+                      final nameChanged = newName != brand.name;
+
                       setDlg(() => saving = true);
+
+                      // Read image bytes while the dialog is still open (no
+                      // notifyListeners fires yet, so the tree is stable).
+                      Uint8List? logoBytes;
+                      Uint8List? coverBytes;
                       try {
-                        final ds = ref.read(dataServiceProvider);
-                        
-                        // Update name if changed
-                        if (newName != brand.name) {
-                          await ds.updateBrandName(brand.id, newName);
-                        }
-                        
-                        // Update logo if a new file was selected
                         if (newLogoFile != null) {
-                          final bytes = await newLogoFile!.readAsBytes();
-                          final url = await ds.uploadBrandLogo(brand.id, bytes,
-                              'logo_${DateTime.now().millisecondsSinceEpoch}.jpg');
-                          await ds.updateBrandLogo(brand.id, url);
+                          logoBytes = await newLogoFile!.readAsBytes();
                         }
-                        
-                        // Pop dialog first
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
-                        }
-                        // Wait a frame before showing snackbar
-                        await Future.delayed(Duration.zero);
-                        if (mounted && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Brand updated!'),
-                              backgroundColor: AppColors.success,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                            ),
-                          );
+                        if (newCoverFile != null) {
+                          coverBytes = await newCoverFile!.readAsBytes();
                         }
                       } catch (e) {
                         setDlg(() => saving = false);
-                        if (ctx.mounted && mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text('Error: $e'),
-                                backgroundColor: AppColors.error),
-                          );
+                        messenger.showSnackBar(
+                          SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: AppColors.error),
+                        );
+                        return;
+                      }
+
+                      // Close the dialog FIRST so its dependents are detached
+                      // before the mutations rebuild the underlying screen.
+                      if (ctx.mounted) Navigator.pop(ctx);
+
+                      // Wait for the dialog to fully close and detach
+                      await Future.delayed(const Duration(milliseconds: 100));
+
+                      try {
+                        if (nameChanged) {
+                          await ds.updateBrandName(brand.id, newName);
                         }
+                        if (logoBytes != null) {
+                          final url = await ds.uploadBrandLogo(brand.id, logoBytes,
+                              'logo_${DateTime.now().millisecondsSinceEpoch}.jpg');
+                          await ds.updateBrandLogo(brand.id, url);
+                        }
+                        if (coverBytes != null) {
+                          final url = await ds.uploadBrandCover(brand.id, coverBytes,
+                              '${DateTime.now().millisecondsSinceEpoch}.jpg');
+                          await ds.updateBrandCover(brand.id, url);
+                        }
+
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: const Text('Brand updated!'),
+                            backgroundColor: AppColors.success,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 3),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                        );
+
+                        // If the name changed, this screen was keyed on the old
+                        // name and now resolves to a null brand — re-bind it to
+                        // the renamed route so it shows live data again.
+                        if (nameChanged && context.mounted) {
+                          router.pushReplacement(
+                              '/admin/brand-detail/${Uri.encodeComponent(newName)}');
+                        }
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                              content: Text('Error: $e'),
+                              backgroundColor: AppColors.error,
+                              duration: const Duration(seconds: 3)),
+                        );
                       }
                     },
               child: saving
@@ -354,18 +461,22 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _isBusy = true);
+
+    // Capture navigator + messenger, then leave this screen BEFORE the mutation.
+    // deleteBrand calls notifyListeners, which would rebuild/tear down this
+    // screen's dataServiceProvider watchers while it is still mounted and trip
+    // the '_dependents.isEmpty' framework assertion. Popping first detaches
+    // those watchers so the refresh lands on the (already updated) brands list.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ds = ref.read(dataServiceProvider);
+    navigator.pop();
     try {
-      await ref.read(dataServiceProvider).deleteBrand(brand.id);
-      if (mounted) context.pop();
+      await ds.deleteBrand(brand.id);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isBusy = false);
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+      );
     }
   }
 
@@ -386,8 +497,14 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
   Widget build(BuildContext context) {
     final ds = ref.watch(dataServiceProvider);
     final brand = ds.getBrandByName(widget.brandName);
-    if (brand == null && !ds.isLoaded) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    // brand can momentarily be null right after a rename (this screen was keyed
+    // on the old name) — show a stable loader instead of tearing the whole
+    // content tree down, which is what tripped the framework assertion.
+    if (brand == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF0EDE8),
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     final primary = AppColors.getBrandPrimary(widget.brandName);
@@ -412,13 +529,13 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                   icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white),
                 ),
                 actions: [
-                  if (brand != null && !_isBusy)
+                  if (!_isBusy)
                     IconButton(
                       onPressed: () => _editBrand(brand),
                       icon: const Icon(Icons.edit_rounded, color: Colors.white),
                       tooltip: 'Edit brand',
                     ),
-                  if (brand != null && !_isBusy)
+                  if (!_isBusy)
                     IconButton(
                       onPressed: () => _deleteBrand(brand, products.length),
                       icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
@@ -447,14 +564,15 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                       ),
                     ),
                     child: Center(
-                      child: brand != null && brand.hasLogo
+                      child: brand.hasLogo
                           ? Padding(
                               padding: const EdgeInsets.only(bottom: 32),
-                              child: Image.network(
-                                brand.logoUrl!,
+                              child: CachedNetworkImage(
+                                imageUrl: brand.logoUrl!,
                                 height: 80,
                                 fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => _logoFallback(primary),
+                                fadeInDuration: const Duration(milliseconds: 150),
+                                errorWidget: (_, __, ___) => _logoFallback(primary),
                               ),
                             )
                           : _logoFallback(primary),
@@ -662,8 +780,14 @@ class _BrandDetailScreenState extends ConsumerState<BrandDetailScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: p.imageUrl != null && p.imageUrl!.isNotEmpty
-                        ? Image.network(p.imageUrl!, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
+                        ? CachedNetworkImage(
+                            imageUrl: p.imageUrl!,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 80,
+                            memCacheHeight: 80,
+                            fadeInDuration: const Duration(milliseconds: 150),
+                            placeholder: (_, __) => const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight),
+                            errorWidget: (_, __, ___) =>
                                 const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight))
                         : const Icon(Icons.inventory_2_outlined, size: 20, color: AppColors.textLight),
                   ),

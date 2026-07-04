@@ -1337,6 +1337,24 @@ class DataService extends ChangeNotifier {
     }
   }
 
+  /// Clears a painter's profile photo. Setting profile_image_url to null makes
+  /// the router's "forced selfie gate" kick in for that painter, sending them
+  /// back to the face-scan (complete-selfie) screen the next time their session
+  /// loads. Used by admins to make a painter re-capture their photo.
+  Future<void> deleteUserProfileImage(String userId) async {
+    final index = _users.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      _users[index] = _users[index].copyWith(clearProfileImage: true);
+      notifyListeners();
+    }
+    try {
+      await _sb.from('users').update({'profile_image_url': null}).eq('id', userId);
+    } catch (e) {
+      debugPrint('Error removing profile image: $e');
+      throw Exception('Failed to remove profile image: $e');
+    }
+  }
+
   // ─── BANK DETAILS ────────────────────────────────────────────
 
   /// Uploads a passbook image to Supabase Storage and returns its public URL.
@@ -1446,12 +1464,13 @@ class DataService extends ChangeNotifier {
     }
   }
 
-  Future<BrandModel> addBrand({required String name, String? logoUrl}) async {
+  Future<BrandModel> addBrand({required String name, String? logoUrl, String? coverImageUrl}) async {
     final maxOrder = _brands.isEmpty ? 0 : _brands.map((b) => b.sortOrder).reduce((a, b) => a > b ? a : b);
     final brand = BrandModel(
       id: _uuid.v4(),
       name: name,
       logoUrl: logoUrl,
+      coverImageUrl: coverImageUrl,
       sortOrder: maxOrder + 1,
       createdAt: DateTime.now(),
     );
@@ -1494,6 +1513,36 @@ class DataService extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error updating brand logo: $e');
       throw Exception('Failed to update brand logo: $e');
+    }
+  }
+
+  /// Uploads a brand cover image to storage and returns its public URL.
+  Future<String> uploadBrandCover(String brandId, dynamic imageBytes, String fileName) async {
+    try {
+      final path = 'brands/$brandId/cover_$fileName';
+      await _sb.storage.from('paint-images').uploadBinary(
+        path,
+        imageBytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+      );
+      return _sb.storage.from('paint-images').getPublicUrl(path);
+    } catch (e) {
+      debugPrint('Error uploading brand cover: $e');
+      throw Exception('Failed to upload brand cover: $e');
+    }
+  }
+
+  Future<void> updateBrandCover(String brandId, String url) async {
+    final i = _brands.indexWhere((b) => b.id == brandId);
+    if (i != -1) {
+      _brands[i] = _brands[i].copyWith(coverImageUrl: url);
+      notifyListeners();
+    }
+    try {
+      await _sb.from('brands').update({'cover_image_url': url}).eq('id', brandId);
+    } catch (e) {
+      debugPrint('Error updating brand cover: $e');
+      throw Exception('Failed to update brand cover: $e');
     }
   }
 

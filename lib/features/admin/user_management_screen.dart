@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -376,28 +377,52 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
                   children: [
                     Stack(
                       children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: isSelected
-                              ? const Center(
-                                  child: Icon(Icons.check_rounded,
-                                      color: Colors.white, size: 24))
-                              : (user.profileImageUrl != null &&
-                                      user.profileImageUrl!.isNotEmpty)
-                                  ? Image.network(
-                                      user.profileImageUrl!,
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Center(
+                        GestureDetector(
+                          // Tap the photo to view it full-screen with pinch-zoom
+                          // (Instagram-style). Disabled while multi-selecting.
+                          onTap: (!_isSelectionMode &&
+                                  user.profileImageUrl != null &&
+                                  user.profileImageUrl!.isNotEmpty)
+                              ? () => _showProfileImageZoom(
+                                  context, user.profileImageUrl!)
+                              : null,
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: isSelected
+                                ? const Center(
+                                    child: Icon(Icons.check_rounded,
+                                        color: Colors.white, size: 24))
+                                : (user.profileImageUrl != null &&
+                                        user.profileImageUrl!.isNotEmpty)
+                                    ? CachedNetworkImage(
+                                        imageUrl: user.profileImageUrl!,
+                                        width: 48,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                        memCacheWidth: 96,
+                                        memCacheHeight: 96,
+                                        fadeInDuration:
+                                            const Duration(milliseconds: 150),
+                                        errorWidget: (_, __, ___) => Center(
+                                          child: Text(
+                                            user.name.substring(0, 1).toUpperCase(),
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
                                         child: Text(
                                           user.name.substring(0, 1).toUpperCase(),
                                           style: GoogleFonts.poppins(
@@ -407,17 +432,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
                                           ),
                                         ),
                                       ),
-                                    )
-                                  : Center(
-                                      child: Text(
-                                        user.name.substring(0, 1).toUpperCase(),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ),
+                          ),
                         ),
                       ],
                     ),
@@ -703,6 +718,9 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
           case 'silver':
             ds.updateUserTier(user.id, 'silver');
             break;
+          case 'remove_photo':
+            _confirmRemoveProfilePhoto(user);
+            return; // handled async; skip the shared setState below
           case 'delete':
             ds.deleteUser(user.id);
             break;
@@ -750,6 +768,20 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
             ],
           ),
         ),
+        if (user.profileImageUrl != null &&
+            (user.profileImageUrl as String).isNotEmpty)
+          PopupMenuItem(
+            value: 'remove_photo',
+            child: Row(
+              children: [
+                const Icon(Icons.no_photography_rounded,
+                    color: AppColors.warning, size: 18),
+                const SizedBox(width: 8),
+                Text('Remove photo (re-scan)',
+                    style: GoogleFonts.poppins(fontSize: 13)),
+              ],
+            ),
+          ),
         PopupMenuItem(
           value: 'delete',
           child: Row(
@@ -764,6 +796,108 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen>
           ),
         ),
       ],
+    );
+  }
+
+  /// Confirms, then clears a painter's profile photo. The router's forced-selfie
+  /// gate then makes that painter re-capture their photo on their next session
+  /// load (they'll be routed to the face-scan screen automatically).
+  Future<void> _confirmRemoveProfilePhoto(dynamic user) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Remove profile photo?',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Text(
+          'This deletes ${_capitalize(user.name)}\'s current photo. They will be '
+          'asked to scan their face again the next time they open the app.',
+          style: GoogleFonts.poppins(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel',
+                style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Remove',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(dataServiceProvider).deleteUserProfileImage(user.id);
+      if (mounted) setState(() {});
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('${_capitalize(user.name)}\'s photo removed — they\'ll re-scan on next login'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
+  /// Full-screen, pinch-to-zoom viewer for a painter's profile photo.
+  void _showProfileImageZoom(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white)),
+                  errorWidget: (_, __, ___) => const Center(
+                    child: Icon(Icons.broken_image_rounded,
+                        color: Colors.white54, size: 64),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(ctx).padding.top + 8,
+              right: 12,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.close_rounded,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

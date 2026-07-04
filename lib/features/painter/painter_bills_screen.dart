@@ -536,17 +536,20 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
       );
       added++;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(added > 0
-            ? '$added item${added == 1 ? '' : 's'} added to cart!'
-            : 'No products found to add'),
-        backgroundColor:
-            added > 0 ? const Color(0xFFFF9500) : AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(added > 0
+              ? '$added item${added == 1 ? '' : 's'} added to cart!'
+              : 'No products found to add'),
+          backgroundColor:
+              added > 0 ? const Color(0xFFFF9500) : AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   void _showFullBill(String url) async {

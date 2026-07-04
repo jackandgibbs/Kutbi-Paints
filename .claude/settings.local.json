@@ -7,7 +7,10 @@
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); v=d[0]['value'] if d else []; print\\('records:', len\\(v\\)\\); [print\\(' -', r.get\\('month'\\), '| reset:', r.get\\('reset_date'\\), '| painters:', len\\(r.get\\('painters',[]\\)\\), '| total_pts:', sum\\(p.get\\('points',0\\) for p in r.get\\('painters',[]\\)\\)\\) for r in v]\")",
       "Bash(python -c ' *)",
       "mcp__ide__getDiagnostics",
-      "Bash(cd *)"
+      "Bash(cd *)",
+      "Bash(flutter analyze *)",
+      "Bash(cd /Users/dev/workspace-0711b89b)",
+      "Bash(ls)"
     ]
   }
 }

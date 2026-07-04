@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/platform_support.dart';
 import '../../providers/auth_provider.dart';
@@ -224,7 +225,33 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
 
   /// Adds all items to the cart WITHOUT requiring a site location.
   void _addToCart() {
-    final ds = ref.read(dataServiceProvider);
+    final messenger = ScaffoldMessenger.of(context);
+
+    void showError(String msg) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
+
+    // Validate: the color shade code is required to add a shade-based product
+    // to the cart (same rule as Place Order).
+    for (final item in _items) {
+      if (item.selectedProduct == null || item.selectedSize == null) continue;
+      final qty = int.tryParse(item.qtyCtrl.text) ?? 0;
+      if (qty <= 0) continue;
+      if (_requiresColorShade(item.selectedProduct) &&
+          item.shadeCodeCtrl.text.trim().isEmpty) {
+        showError(
+            'Enter the color shade code for "${item.selectedProduct!.name}" before adding to cart');
+        return;
+      }
+    }
+
     int added = 0;
     for (final item in _items) {
       if (item.selectedProduct == null || item.selectedSize == null) continue;
@@ -241,25 +268,55 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
       added++;
     }
     if (added == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one product')),
-      );
+      showError('Please add at least one product');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$added item${added == 1 ? '' : 's'} added to cart!'),
-        backgroundColor: const Color(0xFFFF9500),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        action: SnackBarAction(
-          label: 'View Cart',
-          textColor: Colors.white,
-          onPressed: () => Navigator.pop(context),
+    // Show ONLY a toast (no snackbar / action). Uses the overlay-based FToast
+    // so it works on both the Windows app and the Android APK — the native
+    // Fluttertoast.showToast(msg:) has no Windows implementation and shows
+    // nothing on desktop.
+    _showCartToast('$added item${added == 1 ? '' : 's'} added to cart!');
+    Navigator.pop(context);
+  }
+
+  /// Cross-platform toast (Windows + Android) built on Flutter's Overlay.
+  void _showCartToast(String msg) {
+    final fToast = FToast();
+    fToast.init(context);
+    fToast.showToast(
+      toastDuration: const Duration(seconds: 2),
+      gravity: ToastGravity.BOTTOM,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF9500),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              msg,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
-    Navigator.pop(context);
   }
 
   Future<void> _placeOrder() async {
@@ -942,9 +999,11 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
               if (_requiresColorShade(item.selectedProduct)) ...[
                 TextFormField(
                   controller: item.shadeCodeCtrl,
+                  onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
-                    labelText: 'Color Shade Code',
+                    labelText: 'Color Shade Code *',
                     hintText: 'e.g., L103, X456',
+                    helperText: 'Required to add this product to the cart',
                     prefixIcon: Icon(Icons.format_color_fill_rounded),
                   ),
                   validator: (v) {
@@ -961,7 +1020,8 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
+                    Expanded(
+                      child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -993,6 +1053,8 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
                           ),
                       ],
                     ),
+                    ),
+                    const SizedBox(width: 8),
                     Text(
                       'Qty: x${item.qtyCtrl.text}',
                       style: GoogleFonts.poppins(

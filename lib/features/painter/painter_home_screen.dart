@@ -712,7 +712,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
 
   /// Maps a brand name to the painter route to use.
   /// Built-in brands get their dedicated rich screens; all others use the
-  /// generic BrandDashboardScreen (already supports arbitrary brand strings).
+  /// shared Birla-Opus-style BrandProductScreen via /painter/brand/:name.
   String _routeForBrand(String name) {
     switch (name.toLowerCase()) {
       case 'asian paints': return '/painter/asian-paints';

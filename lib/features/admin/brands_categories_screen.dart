@@ -23,6 +23,7 @@ class _BrandsCategoriesScreenState extends ConsumerState<BrandsCategoriesScreen>
   Future<void> _showAddBrandDialog() async {
     final nameCtrl = TextEditingController();
     File? logoFile;
+    File? coverFile;
     bool saving = false;
 
     await showDialog(
@@ -90,6 +91,54 @@ class _BrandsCategoriesScreenState extends ConsumerState<BrandsCategoriesScreen>
                       label: Text('Change', style: GoogleFonts.poppins(fontSize: 11)),
                     ),
                   const SizedBox(height: 12),
+
+                  // Cover image picker (wide banner used as the brand header)
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                        imageQuality: 85,
+                        maxWidth: 1000,
+                      );
+                      if (picked != null) setDlg(() => coverFile = File(picked.path));
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        color: AppColors.adminPrimary.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.adminPrimary.withValues(alpha: 0.25),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: coverFile != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Image.file(coverFile!, width: double.infinity, fit: BoxFit.cover),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.image_rounded,
+                                    size: 26, color: AppColors.adminPrimary),
+                                const SizedBox(height: 4),
+                                Text('Add Cover Image (optional)',
+                                    style: GoogleFonts.poppins(
+                                        fontSize: 10, color: AppColors.adminPrimary)),
+                              ],
+                            ),
+                    ),
+                  ),
+                  if (coverFile != null)
+                    TextButton.icon(
+                      onPressed: () => setDlg(() => coverFile = null),
+                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                      icon: const Icon(Icons.refresh_rounded, size: 14),
+                      label: Text('Change', style: GoogleFonts.poppins(fontSize: 11)),
+                    ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: nameCtrl,
                     autofocus: true,
@@ -133,39 +182,49 @@ class _BrandsCategoriesScreenState extends ConsumerState<BrandsCategoriesScreen>
                         );
                         return;
                       }
+
+                      // Capture the messenger + service BEFORE any async work.
+                      final messenger = ScaffoldMessenger.of(context);
+                      final ds = ref.read(dataServiceProvider);
+                      final logo = logoFile;
+                      final cover = coverFile;
+
                       setDlg(() => saving = true);
+
+                      // Close the dialog FIRST, then run the mutations. addBrand /
+                      // updateBrandLogo / updateBrandCover each call notifyListeners,
+                      // which rebuilds/tears down the underlying screen's watchers —
+                      // doing that with the dialog still mounted trips the
+                      // '_dependents.isEmpty' framework assertion.
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      await Future.delayed(const Duration(milliseconds: 100));
+
                       try {
-                        final ds = ref.read(dataServiceProvider);
                         final brand = await ds.addBrand(name: name);
-                        if (logoFile != null) {
-                          final bytes = await logoFile!.readAsBytes();
+                        if (logo != null) {
+                          final bytes = await logo.readAsBytes();
                           final url = await ds.uploadBrandLogo(
                               brand.id, bytes, 'logo_${DateTime.now().millisecondsSinceEpoch}.jpg');
                           await ds.updateBrandLogo(brand.id, url);
                         }
-                        // Pop dialog first
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
+                        if (cover != null) {
+                          final bytes = await cover.readAsBytes();
+                          final url = await ds.uploadBrandCover(
+                              brand.id, bytes, '${DateTime.now().millisecondsSinceEpoch}.jpg');
+                          await ds.updateBrandCover(brand.id, url);
                         }
-                        // Wait a frame before showing snackbar to avoid framework assertion
-                        await Future.delayed(Duration.zero);
-                        if (mounted && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('$name added!'),
-                              backgroundColor: AppColors.success,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                          );
-                        }
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('$name added!'),
+                            backgroundColor: AppColors.success,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        );
                       } catch (e) {
-                        setDlg(() => saving = false);
-                        if (ctx.mounted && mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-                          );
-                        }
+                        messenger.showSnackBar(
+                          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                        );
                       }
                     },
               child: saving

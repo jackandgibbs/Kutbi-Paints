@@ -9,7 +9,7 @@ import '../features/auth/pending_approval_screen.dart';
 import '../features/painter/painter_home_screen.dart';
 import '../features/painter/complete_selfie_screen.dart';
 import '../core/utils/platform_support.dart';
-import '../features/painter/brand_dashboard_screen.dart';
+import '../features/painter/brand_product_screen.dart';
 import '../features/painter/birla_opus_screen.dart';
 import '../features/painter/berger_screen.dart';
 import '../features/painter/asian_paints_screen.dart';
@@ -64,8 +64,25 @@ import '../features/admin/admin_reset_points_screen.dart';
 import '../features/admin/admin_bank_details_screen.dart';
 
 
+/// Bridges Riverpod auth-state changes into a [Listenable] so GoRouter can
+/// re-run its `redirect` logic WITHOUT the whole router being rebuilt.
+///
+/// Previously `routerProvider` did `ref.watch(authProvider)`, so every auth
+/// change created a brand-new GoRouter and swapped it into MaterialApp.router.
+/// Recreating the router tears the entire Navigator down while inherited
+/// widgets still have dependents — which throws the framework assertion
+/// `'_dependents.isEmpty': is not true` on the next navigation (pop/push).
+class _AuthRouterRefresh extends ChangeNotifier {
+  _AuthRouterRefresh(Ref ref) {
+    ref.listen(authProvider, (_, __) => notifyListeners());
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
+  // Build the router ONCE. Auth changes only ping the refresh listenable, which
+  // makes GoRouter re-evaluate redirects against fresh state — no teardown.
+  final refresh = _AuthRouterRefresh(ref);
+  ref.onDispose(refresh.dispose);
 
   // Smooth fade + subtle scale transition for all pages
   CustomTransitionPage<void> _fadeTransitionPage({
@@ -99,7 +116,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      // Read the CURRENT auth state each time redirect runs (the router is no
+      // longer rebuilt on auth changes; the refreshListenable re-runs this).
+      final authState = ref.read(authProvider);
       final isLoggedIn = authState.isLoggedIn;
       final isSplashRoute = state.matchedLocation == '/splash';
       final isLoginRoute = state.matchedLocation == '/login';
@@ -213,9 +234,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/painter/brand/:brand',
         pageBuilder: (context, state) {
           final brand = Uri.decodeComponent(state.pathParameters['brand']!);
+          // Every dynamically-created brand renders with the shared, Birla-Opus
+          // style template (same structure/navigation), differing only in data.
           return _fadeTransitionPage(
             state: state,
-            child: BrandDashboardScreen(brand: brand),
+            child: BrandProductScreen(brand: brand),
           );
         },
       ),

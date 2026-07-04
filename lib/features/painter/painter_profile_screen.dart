@@ -59,13 +59,41 @@ class PainterProfileScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      UserAvatar(
-                        imageUrl: liveUser.profileImageUrl,
-                        name: liveUser.name,
-                        size: 80,
-                        backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        foregroundColor: Colors.white,
-                        fontSize: 32,
+                      GestureDetector(
+                        onTap: () {
+                          final url = liveUser.profileImageUrl;
+                          if (url != null && url.isNotEmpty) {
+                            _showProfileImage(context, url);
+                          }
+                        },
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            UserAvatar(
+                              imageUrl: liveUser.profileImageUrl,
+                              name: liveUser.name,
+                              size: 80,
+                              backgroundColor:
+                                  Colors.white.withValues(alpha: 0.2),
+                              foregroundColor: Colors.white,
+                              fontSize: 32,
+                            ),
+                            if (liveUser.profileImageUrl != null &&
+                                liveUser.profileImageUrl!.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: const Color(0xFF1565C0),
+                                      width: 1.5),
+                                ),
+                                child: const Icon(Icons.zoom_in_rounded,
+                                    size: 14, color: Color(0xFF1565C0)),
+                              ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(liveUser.name,
@@ -129,6 +157,55 @@ class PainterProfileScreen extends ConsumerWidget {
     );
   }
 
+  void _showProfileImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const Center(
+                          child: CircularProgressIndicator(color: Colors.white)),
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Icon(Icons.broken_image_rounded,
+                        color: Colors.white54, size: 64),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: MediaQuery.of(ctx).padding.top + 8,
+              right: 12,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.close_rounded,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _infoTile(IconData icon, String label, String value) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -149,18 +226,20 @@ class PainterProfileScreen extends ConsumerWidget {
             child: Icon(icon, color: AppColors.primary, size: 20),
           ),
           const SizedBox(width: 14),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: GoogleFonts.poppins(
-                      fontSize: 11, color: AppColors.textSecondary)),
-              Text(value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  )),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: GoogleFonts.poppins(
+                        fontSize: 11, color: AppColors.textSecondary)),
+                Text(value,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    )),
+              ],
+            ),
           ),
         ],
       ),

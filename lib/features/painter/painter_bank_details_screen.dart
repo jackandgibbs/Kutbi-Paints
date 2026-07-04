@@ -39,7 +39,8 @@ class _PainterBankDetailsScreenState
   }
 
   Future<void> _submit() async {
-    final account = _accountCtrl.text.trim();
+    // Strip the display spaces — store digits only.
+    final account = _accountCtrl.text.replaceAll(' ', '').trim();
     if (account.isEmpty) {
       _snack('Please enter your bank account number');
       return;
@@ -310,9 +311,9 @@ class _PainterBankDetailsScreenState
         TextField(
           controller: _accountCtrl,
           keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: [_AccountNumberFormatter()],
           decoration: InputDecoration(
-            hintText: 'e.g. 1234567890',
+            hintText: 'e.g. 1234 5678 9012',
             hintStyle: GoogleFonts.poppins(color: AppColors.textLight),
             prefixIcon: const Icon(Icons.account_balance_rounded,
                 color: AppColors.primary),
@@ -595,6 +596,7 @@ class _PainterBankDetailsScreenState
       'rejected' => (AppColors.error, 'Rejected'),
       _ => (AppColors.textLight, 'None'),
     };
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -606,6 +608,35 @@ class _PainterBankDetailsScreenState
         style: GoogleFonts.poppins(
             fontSize: 12, fontWeight: FontWeight.w700, color: color),
       ),
+    );
+  }
+}
+
+/// Formats a bank account number: digits only, capped at 12 digits, with a
+/// space inserted after every 4 digits (e.g. "1234 5678 9012").
+class _AccountNumberFormatter extends TextInputFormatter {
+  static const int _maxDigits = 12;
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    // Keep digits only, capped at the max length.
+    var digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > _maxDigits) {
+      digits = digits.substring(0, _maxDigits);
+    }
+
+    // Group into blocks of 4 separated by a space.
+    final buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      if (i != 0 && i % 4 == 0) buffer.write(' ');
+      buffer.write(digits[i]);
+    }
+    final formatted = buffer.toString();
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
