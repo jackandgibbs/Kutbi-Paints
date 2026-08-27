@@ -73,7 +73,7 @@ class _AdminGoalsTabState extends ConsumerState<AdminGoalsTab> {
                   _claymorphicActionCard(
                     icon: Icons.campaign_rounded,
                     title: 'Offers',
-                    subtitle: 'Manage promotions & campaigns',
+                    subtitle: 'Manage offers & campaigns',
                     glowColor: const Color(0xFFF97316),
                     badgeText: activePromotions > 0
                         ? '$activePromotions active'

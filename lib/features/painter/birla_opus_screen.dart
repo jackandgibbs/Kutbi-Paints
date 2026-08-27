@@ -10,6 +10,7 @@ import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../shared/widgets/skeleton_loaders.dart';
 import '../shared/widgets/product_image.dart';
+import 'widgets/brand_offers_widget.dart';
 
 /// Birla Opus multi-level product selection screen.
 ///
@@ -105,6 +106,11 @@ class _BirlaOpusScreenState extends ConsumerState<BirlaOpusScreen> {
             child: Column(
               children: [
                 _buildHeader(),
+                Builder(builder: (ctx) {
+                  final ds = ref.watch(dataServiceProvider);
+                  final offers = ds.getActivePromotions().where((p) => p.brand.toLowerCase() == 'birla opus').toList();
+                  return BrandOffersWidget(offers: offers, brand: 'Birla Opus');
+                }),
                 Expanded(child: _buildContent()),
               ],
             ),

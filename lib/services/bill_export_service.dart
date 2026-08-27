@@ -23,12 +23,16 @@ class BillExportService {
     required String painterPhone,
     required List<Map<String, dynamic>> items,
     double? customTotal,
+    double? subtotal,
+    double discountAmount = 0.0,
+    String? discountName,
   }) async {
     final pdf = pw.Document();
     final font = await PdfGoogleFonts.poppinsRegular();
     final boldFont = await PdfGoogleFonts.poppinsBold();
 
     final totalAmount = customTotal ?? order.totalAmount;
+    final displaySubtotal = subtotal ?? totalAmount;
     final totalQty = items.fold<int>(0, (sum, item) => sum + (item['quantity'] as int));
     final invoiceNo = await _getNextInvoiceNumber();
     final invoiceStr = invoiceNo.toString().padLeft(2, '0');
@@ -140,7 +144,7 @@ class BillExportService {
                       pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.SizedBox()),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(6),
-                        child: pw.Text('₹ ${totalAmount.toStringAsFixed(0)}', style: pw.TextStyle(font: boldFont, fontSize: 11), textAlign: pw.TextAlign.right),
+                        child: pw.Text('₹ ${displaySubtotal.toStringAsFixed(0)}', style: pw.TextStyle(font: boldFont, fontSize: 11), textAlign: pw.TextAlign.right),
                       ),
                     ],
                   ),
@@ -171,6 +175,10 @@ class BillExportService {
                     flex: 3,
                     child: pw.Column(
                       children: [
+                        if (discountAmount > 0) ...[
+                          _summaryRow('Subtotal', '₹ ${displaySubtotal.toStringAsFixed(0)}', font),
+                          _summaryRow('Discount (${discountName ?? 'Offer'})', '- ₹ ${discountAmount.toStringAsFixed(0)}', font),
+                        ],
                         _summaryRow('Total Amount', '₹ ${totalAmount.toStringAsFixed(0)}', boldFont, isBold: true),
                         _summaryRow('Received Amount', '₹ 0', font),
                         pw.SizedBox(height: 10),

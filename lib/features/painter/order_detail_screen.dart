@@ -197,6 +197,24 @@ class OrderDetailScreen extends ConsumerWidget {
                        ],
                      ),
                      const Divider(height: 24),
+                     if (order.discountAmount > 0) ...[
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                         children: [
+                           Text('Subtotal', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+                           Text('₹${order.subtotal.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+                         ],
+                       ),
+                       const SizedBox(height: 8),
+                       Row(
+                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                         children: [
+                           Text('Discount (${order.discountName ?? "Offer"})', style: GoogleFonts.poppins(color: AppColors.error)),
+                           Text('-₹${order.discountAmount.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontWeight: FontWeight.w500, color: AppColors.error)),
+                         ],
+                       ),
+                       const Divider(height: 24),
+                     ],
                      if (order.paymentMethod == 'udhaari' && order.udhaariInterestEnabled) ...[
                        Row(
                          mainAxisAlignment: MainAxisAlignment.spaceBetween,

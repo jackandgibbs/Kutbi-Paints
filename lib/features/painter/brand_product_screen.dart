@@ -11,6 +11,7 @@ import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../shared/widgets/skeleton_loaders.dart';
 import '../shared/widgets/product_image.dart';
+import 'widgets/brand_offers_widget.dart';
 
 /// Generic, brand-parameterized product selection screen.
 ///
@@ -114,6 +115,11 @@ class _BrandProductScreenState extends ConsumerState<BrandProductScreen> {
             child: Column(
               children: [
                 _buildHeader(),
+                Builder(builder: (ctx) {
+                  final ds = ref.watch(dataServiceProvider);
+                  final offers = ds.getActivePromotions().where((p) => p.brand.toLowerCase() == _brand.toLowerCase()).toList();
+                  return BrandOffersWidget(offers: offers, brand: _brand);
+                }),
                 Expanded(child: _buildContent()),
               ],
             ),

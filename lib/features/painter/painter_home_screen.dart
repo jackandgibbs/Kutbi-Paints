@@ -583,19 +583,11 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Promotions',
+                      'Featured',
                       style: GoogleFonts.poppins(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Check out our latest offers',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -604,6 +596,8 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   ],
                 );
               }),
+
+
 
               // ─── Quick Reorder Section ────────────────────
               if (lastProducts.isNotEmpty) ...[
@@ -739,6 +733,10 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
     final primary  = AppColors.getBrandPrimary(brand.name);
     final count    = ds.getProductsByBrand(brand.name).length;
     final label    = brand.name.toLowerCase() == 'tools' ? '$count Items' : '$count Products';
+    final hasOffer = ds.getActivePromotions().any(
+        (p) => p.brand.toLowerCase() == brand.name.toLowerCase() || p.brand.toLowerCase() == 'all'
+    );
+
     final card = GlassBrandCard(
       brandName:     brand.name,
       subtitle:      _subtitleForBrand(brand.name),
@@ -749,6 +747,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
       glassTint:     primary.withValues(alpha: 0.1),
       productCount:  label,
       onTap: () => context.push(_routeForBrand(brand.name)),
+      hasOffer:      hasOffer,
     );
     if (fixedWidth != null) return SizedBox(width: fixedWidth, child: card);
     return card;

@@ -884,12 +884,15 @@ class DataService extends ChangeNotifier {
 
   /// Admin uploads a bill image and sets total amount for an order.
   /// Moves the order to 'udhaari_pending_approval' status for admin approval in Udhaari Requests.
-  Future<void> uploadBill(String orderId, String imageUrl, double totalAmount, {List<OrderItemModel>? customItems, bool hideAmount = false}) async {
+  Future<void> uploadBill(String orderId, String imageUrl, double totalAmount, {List<OrderItemModel>? customItems, bool hideAmount = false, double subtotal = 0.0, double discountAmount = 0.0, String? discountName}) async {
     final i = _orders.indexWhere((o) => o.id == orderId);
     if (i != -1) {
       final updatedOrder = _orders[i].copyWith(
         billImageUrl: imageUrl,
         totalAmount: totalAmount,
+        subtotal: subtotal,
+        discountAmount: discountAmount,
+        discountName: discountName,
         items: customItems ?? _orders[i].items,
         status: 'udhaari_pending_approval', // Move to udhaari pending approval for admin to approve
         paymentMethod: 'udhaari',
@@ -905,6 +908,9 @@ class DataService extends ChangeNotifier {
         await _sb.from('orders').update({
           'bill_image_url': imageUrl,
           'total_amount': totalAmount,
+          'subtotal': subtotal,
+          'discount_amount': discountAmount,
+          'discount_name': discountName,
           'items': (customItems ?? updatedOrder.items).map((e) => e.toJson()).toList(),
           'status': 'udhaari_pending_approval',
           'payment_method': 'udhaari',
@@ -3003,6 +3009,20 @@ class DataService extends ChangeNotifier {
       await _sb.from('promotions').delete().eq('id', id);
     } catch (e) {
       debugPrint('Error deleting promotion: $e');
+    }
+  }
+
+  Future<void> updatePromotion(PromotionModel promotion) async {
+    final index = _promotions.indexWhere((p) => p.id == promotion.id);
+    if (index != -1) {
+      _promotions[index] = promotion;
+      notifyListeners();
+
+      try {
+        await _sb.from('promotions').update(promotion.toJson()).eq('id', promotion.id);
+      } catch (e) {
+        debugPrint('Error updating promotion: $e');
+      }
     }
   }
 

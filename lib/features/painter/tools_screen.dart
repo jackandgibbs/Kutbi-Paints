@@ -10,6 +10,7 @@ import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../shared/widgets/skeleton_loaders.dart';
 import '../shared/widgets/product_image.dart';
+import 'widgets/brand_offers_widget.dart';
 
 /// Tools multi-level product selection screen.
 ///
@@ -78,6 +79,11 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen> {
             child: Column(
               children: [
                 _buildHeader(),
+                Builder(builder: (ctx) {
+                  final ds = ref.watch(dataServiceProvider);
+                  final offers = ds.getActivePromotions().where((p) => p.brand.toLowerCase() == 'tools').toList();
+                  return BrandOffersWidget(offers: offers, brand: 'Tools');
+                }),
                 Expanded(child: _buildContent()),
               ],
             ),

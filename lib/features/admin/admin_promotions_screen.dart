@@ -18,7 +18,6 @@ class AdminPromotionsScreen extends ConsumerStatefulWidget {
 class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
   final _titleController = TextEditingController();
   final _discountPercentController = TextEditingController();
-  final _discountFlatController = TextEditingController();
   String _selectedBrand = 'All';
   DateTime? _startDate;
   DateTime? _endDate;
@@ -27,17 +26,23 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
   void dispose() {
     _titleController.dispose();
     _discountPercentController.dispose();
-    _discountFlatController.dispose();
     super.dispose();
   }
 
-  void _showAddPromotionSheet() {
-    _titleController.clear();
-    _discountPercentController.clear();
-    _discountFlatController.clear();
-    _selectedBrand = 'All';
-    _startDate = DateTime.now();
-    _endDate = DateTime.now().add(const Duration(days: 7));
+  void _showAddOfferSheet({PromotionModel? existingOffer}) {
+    if (existingOffer != null) {
+      _titleController.text = existingOffer.title;
+      _discountPercentController.text = existingOffer.discountPercent.toString();
+      _selectedBrand = existingOffer.brand;
+      _startDate = existingOffer.startDate;
+      _endDate = existingOffer.endDate;
+    } else {
+      _titleController.clear();
+      _discountPercentController.clear();
+      _selectedBrand = 'All';
+      _startDate = DateTime.now();
+      _endDate = DateTime.now().add(const Duration(days: 7));
+    }
 
     showModalBottomSheet(
       context: context,
@@ -61,7 +66,7 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Create Promotion',
+                    existingOffer != null ? 'Edit Offer' : 'Create Offer',
                     style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 16),
@@ -70,7 +75,7 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                   TextField(
                     controller: _titleController,
                     decoration: InputDecoration(
-                      labelText: 'Promotion Title',
+                      labelText: 'Offer Title',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       isDense: true,
                     ),
@@ -95,32 +100,14 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                   const SizedBox(height: 12),
                   
                   // Discounts
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _discountPercentController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(
-                            labelText: '% Discount (e.g. 0.1 for 10%)',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _discountFlatController,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Flat ₹ Discount (e.g. 50)',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                    ],
+                  TextField(
+                    controller: _discountPercentController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: '% Discount (e.g. 10 for 10%)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      isDense: true,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -186,22 +173,41 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                       onPressed: () {
                         if (_titleController.text.trim().isEmpty) return;
                         
-                        final promo = PromotionModel(
-                          id: const Uuid().v4(),
-                          title: _titleController.text.trim(),
-                          brand: _selectedBrand,
-                          discountPercent: double.tryParse(_discountPercentController.text) ?? 0.0,
-                          discountFlat: double.tryParse(_discountFlatController.text) ?? 0.0,
-                          startDate: _startDate!,
-                          endDate: _endDate!,
-                          isActive: true,
-                          createdAt: DateTime.now(),
-                        );
-                        
-                        ref.read(dataServiceProvider).addPromotion(promo);
+                        double discountVal = double.tryParse(_discountPercentController.text) ?? 0.0;
+                        if (discountVal > 100) discountVal = 100;
+                        // Storing as a percentage up to 100 directly. 
+                        // Note: previous implementation used 0.1 for 10%, let's normalize this: 
+                        // If they enter 10, save it as 0.1. If they enter 0.1, it's 0.1.
+                        // Let's assume if it's > 1, they mean percentages.
+                        if (discountVal > 1.0) discountVal = discountVal / 100.0;
+
+                        if (existingOffer != null) {
+                          final updated = existingOffer.copyWith(
+                            title: _titleController.text.trim(),
+                            brand: _selectedBrand,
+                            discountPercent: discountVal,
+                            discountFlat: 0.0,
+                            startDate: _startDate!,
+                            endDate: _endDate!,
+                          );
+                          ref.read(dataServiceProvider).updatePromotion(updated);
+                        } else {
+                          final promo = PromotionModel(
+                            id: const Uuid().v4(),
+                            title: _titleController.text.trim(),
+                            brand: _selectedBrand,
+                            discountPercent: discountVal,
+                            discountFlat: 0.0,
+                            startDate: _startDate!,
+                            endDate: _endDate!,
+                            isActive: true,
+                            createdAt: DateTime.now(),
+                          );
+                          ref.read(dataServiceProvider).addPromotion(promo);
+                        }
                         Navigator.pop(context);
                       },
-                      child: Text('Create Promotion', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
+                      child: Text(existingOffer != null ? 'Save Changes' : 'Create Offer', style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -222,32 +228,51 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
     if (!ds.isLoaded) {
       return const Scaffold(
         backgroundColor: Color(0xFFF0EDE8),
-        body: LottieLoadingWidget(message: 'Loading promotions...'),
+        body: LottieLoadingWidget(message: 'Loading offers...'),
       );
     }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0EDE8),
       appBar: AppBar(
-        title: Text('Promotions', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text('Offers', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.adminPrimary,
-        onPressed: _showAddPromotionSheet,
+        onPressed: () => _showAddOfferSheet(),
         child: const Icon(Icons.add_rounded, color: Colors.white),
       ),
       body: promos.isEmpty
-          ? const Center(child: Text('No active promotions'))
+          ? const Center(child: Text('No active offers'))
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: promos.length,
               itemBuilder: (context, index) {
                 final basePromo = promos.toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));
                 final promo = basePromo[index];
-                final isValid = promo.isValidNow;
+                final isUpcoming = promo.isUpcoming;
+                final isExpired = promo.isExpired;
+
+                String statusText = 'Active';
+                Color statusColor = Colors.green.shade800;
+                Color statusBgColor = Colors.green.shade100;
+                
+                if (!promo.isActive) {
+                  statusText = 'Inactive';
+                  statusColor = Colors.grey.shade800;
+                  statusBgColor = Colors.grey.shade300;
+                } else if (isExpired) {
+                  statusText = 'Expired';
+                  statusColor = Colors.red.shade800;
+                  statusBgColor = Colors.red.shade100;
+                } else if (isUpcoming) {
+                  statusText = 'Upcoming';
+                  statusColor = Colors.blue.shade800;
+                  statusBgColor = Colors.blue.shade100;
+                }
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
@@ -269,7 +294,10 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    title: Text(promo.title, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                    title: Text(
+                      promo.title.isNotEmpty ? '${promo.title[0].toUpperCase()}${promo.title.substring(1)}' : promo.title,
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -279,27 +307,31 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: isValid ? Colors.green.shade100 : Colors.red.shade100,
+                                color: statusBgColor,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                isValid ? 'Active' : 'Inactive/Expired',
+                                statusText,
                                 style: GoogleFonts.poppins(
                                   fontSize: 10,
-                                  color: isValid ? Colors.green.shade800 : Colors.red.shade800,
+                                  color: statusColor,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              promo.brand,
-                              style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                            Expanded(
+                              child: Text(
+                                promo.brand,
+                                style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${promo.discountPercent > 0 ? '${(promo.discountPercent*100).toStringAsFixed(0)}% OFF' : ''} ${promo.discountFlat > 0 ? '₹${promo.discountFlat} OFF' : ''}'.trim(),
+                          '${promo.discountPercent > 0 ? '${(promo.discountPercent*100).toStringAsFixed(0)}% OFF' : ''}'.trim(),
                           style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.adminPrimary),
                         ),
                         const SizedBox(height: 2),
@@ -309,12 +341,27 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                         ),
                       ],
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                      onPressed: () {
-                        // Confirm deletion and call delete
-                        ref.read(dataServiceProvider).deletePromotion(promo.id);
-                      },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Switch(
+                          value: promo.isActive,
+                          onChanged: (val) {
+                            ref.read(dataServiceProvider).updatePromotion(promo.copyWith(isActive: val));
+                          },
+                          activeColor: AppColors.adminPrimary,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                          onPressed: () => _showAddOfferSheet(existingOffer: promo),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                          onPressed: () {
+                            ref.read(dataServiceProvider).deletePromotion(promo.id);
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 );

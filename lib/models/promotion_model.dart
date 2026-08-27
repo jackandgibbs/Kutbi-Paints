@@ -52,6 +52,38 @@ class PromotionModel {
   // Helper to check if promotion is currently valid by time
   bool get isValidNow {
     final now = DateTime.now();
-    return isActive && now.isAfter(startDate) && now.isBefore(endDate);
+    return isActive && !now.isBefore(startDate) && now.isBefore(endDate);
+  }
+
+  bool get isUpcoming {
+    return isActive && DateTime.now().isBefore(startDate);
+  }
+
+  bool get isExpired {
+    return DateTime.now().isAfter(endDate);
+  }
+
+  PromotionModel copyWith({
+    String? id,
+    String? title,
+    String? brand,
+    double? discountPercent,
+    double? discountFlat,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool? isActive,
+    DateTime? createdAt,
+  }) {
+    return PromotionModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      brand: brand ?? this.brand,
+      discountPercent: discountPercent ?? this.discountPercent,
+      discountFlat: discountFlat ?? this.discountFlat,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }

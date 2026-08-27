@@ -110,6 +110,9 @@ class OrderModel {
   final bool deletedByAdmin;
   final bool hideAmount; // If true, painter sees '--' instead of amount
   final double commission; // Optional painter commission set by admin at billing time
+  final double subtotal; // Original amount before discount
+  final double discountAmount;
+  final String? discountName;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -136,6 +139,9 @@ class OrderModel {
     this.deletedByAdmin = false,
     this.hideAmount = false,
     this.commission = 0.0,
+    this.subtotal = 0.0,
+    this.discountAmount = 0.0,
+    this.discountName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -167,6 +173,9 @@ class OrderModel {
       deletedByAdmin: json['deleted_by_admin'] ?? false,
       hideAmount: json['hide_amount'] ?? false,
       commission: (json['commission'] ?? 0).toDouble(),
+      subtotal: (json['subtotal'] ?? 0).toDouble(),
+      discountAmount: (json['discount_amount'] ?? 0).toDouble(),
+      discountName: json['discount_name'],
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
     );
@@ -196,6 +205,9 @@ class OrderModel {
       'deleted_by_admin': deletedByAdmin,
       'hide_amount': hideAmount,
       if (commission != 0.0) 'commission': commission,
+      'subtotal': subtotal,
+      'discount_amount': discountAmount,
+      'discount_name': discountName,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -224,6 +236,9 @@ class OrderModel {
     bool? deletedByAdmin,
     bool? hideAmount,
     double? commission,
+    double? subtotal,
+    double? discountAmount,
+    String? discountName,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -250,6 +265,9 @@ class OrderModel {
       deletedByAdmin: deletedByAdmin ?? this.deletedByAdmin,
       hideAmount: hideAmount ?? this.hideAmount,
       commission: commission ?? this.commission,
+      subtotal: subtotal ?? this.subtotal,
+      discountAmount: discountAmount ?? this.discountAmount,
+      discountName: discountName ?? this.discountName,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -200,6 +200,7 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
   Future<void> _showBillingDialog(OrderModel order) async {
     final ds = ref.read(dataServiceProvider);
     final painter = ds.getUserById(order.painterId);
+    final allPromotions = ds.getAllPromotions;
 
     // Local copy of items for editing rates
     final editableItems = order.items.map((item) => {
@@ -213,44 +214,77 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
     double commissionAmount = 0;
     final commissionCtrl = TextEditingController();
 
+    // Discount fields
+    String discountMode = 'none'; // 'none', 'manual', or promo id
+    double manualFlatDiscount = 0;
+    double manualPercentDiscount = 0;
+    String manualDiscountName = '';
+    
+    final manualFlatCtrl = TextEditingController();
+    final manualPercentCtrl = TextEditingController();
+    final manualNameCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           double calculatedTotal = editableItems.fold(0.0, (sum, item) => sum + ((item['quantity'] as num) * (item['rate'] as num)).toDouble());
+          
+          double finalDiscountAmt = 0;
+          String? finalDiscountName;
+
+          if (calculatedTotal > 0) {
+            if (discountMode == 'manual') {
+              finalDiscountAmt = manualFlatDiscount;
+              if (finalDiscountAmt > calculatedTotal) finalDiscountAmt = calculatedTotal;
+              finalDiscountName = manualDiscountName.isNotEmpty ? manualDiscountName : 'Discount';
+            } else if (discountMode != 'none') {
+              try {
+                final promo = allPromotions.firstWhere((p) => p.id == discountMode);
+                finalDiscountAmt = calculatedTotal * promo.discountPercent;
+                if (finalDiscountAmt > calculatedTotal) finalDiscountAmt = calculatedTotal;
+                finalDiscountName = promo.title;
+              } catch (_) {}
+            }
+          } else {
+            discountMode = 'none'; // Reset if rates are 0
+          }
+
+          double finalAmount = calculatedTotal - finalDiscountAmt;
+          if (finalAmount < 0) finalAmount = 0;
 
           return AlertDialog(
             title: Text('Create Official Bill', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
             content: SizedBox(
               width: 500,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.adminAccent.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.adminAccent.withValues(alpha: 0.1)),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.adminAccent.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.adminAccent.withValues(alpha: 0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.adminAccent),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Billing for: ${order.painterName ?? 'Customer'}',
+                            style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.adminAccent),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.adminAccent),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Billing for: ${order.painterName ?? 'Customer'}',
-                          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.adminAccent),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text('Enter rates for each item:', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 300),
+                    const SizedBox(height: 20),
+                    Text('Enter rates for each item:', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 250),
                       child: ListView.separated(
                         shrinkWrap: true,
                         itemCount: editableItems.length,
@@ -305,6 +339,11 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
                                     onChanged: (val) {
                                       setModalState(() {
                                         editableItems[i]['rate'] = double.tryParse(val) ?? 0.0;
+                                        double newTotal = editableItems.fold(0.0, (sum, it) => sum + ((it['quantity'] as num) * (it['rate'] as num)).toDouble());
+                                        if (discountMode == 'manual' && newTotal > 0) {
+                                          manualPercentDiscount = (manualFlatDiscount / newTotal) * 100;
+                                          manualPercentCtrl.text = manualPercentDiscount.toStringAsFixed(2);
+                                        }
                                       });
                                     },
                                   ),
@@ -315,51 +354,162 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
                         },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total Bill Amount', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-                        Text(
-                          '₹ ${calculatedTotal.toStringAsFixed(0)}',
-                          style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 20, color: AppColors.textPrimary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Commission field (optional)
-                  TextFormField(
-                    controller: commissionCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: 'Painter Commission (optional)',
-                      prefixText: '₹ ',
-                      hintText: '0',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
+                    const SizedBox(height: 20),
+                    Text('Discount', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: discountMode,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      helperText: 'Leave blank or 0 for no commission',
-                      helperStyle: GoogleFonts.poppins(fontSize: 11),
+                      items: [
+                        const DropdownMenuItem(value: 'none', child: Text('No Discount')),
+                        const DropdownMenuItem(value: 'manual', child: Text('Manual Discount')),
+                        ...ds.getAllPromotions.map((p) => DropdownMenuItem(
+                          value: p.id,
+                          child: Text('${p.title} (${(p.discountPercent * 100).toStringAsFixed(0)}% OFF) - ${p.brand}'),
+                        )),
+                      ],
+                      onChanged: (val) {
+                        setModalState(() {
+                          discountMode = val ?? 'none';
+                        });
+                      },
                     ),
-                    onChanged: (v) {
-                      setModalState(() {
-                        commissionAmount = double.tryParse(v) ?? 0;
-                      });
-                    },
-                  ),
-                ],
+                    if (discountMode == 'manual') ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: manualNameCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Discount Name (e.g. Diwali Offer)',
+                          isDense: true,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onChanged: (val) => setModalState(() => manualDiscountName = val),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: manualFlatCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: 'Flat (₹)',
+                                isDense: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onChanged: (val) {
+                                setModalState(() {
+                                  manualFlatDiscount = double.tryParse(val) ?? 0;
+                                  if (manualFlatDiscount > calculatedTotal && calculatedTotal > 0) manualFlatDiscount = calculatedTotal;
+                                  if (calculatedTotal > 0) {
+                                    manualPercentDiscount = (manualFlatDiscount / calculatedTotal) * 100;
+                                    manualPercentCtrl.text = manualPercentDiscount.toStringAsFixed(2);
+                                  } else {
+                                    manualPercentCtrl.text = '0';
+                                  }
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: manualPercentCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: 'Percentage (%)',
+                                isDense: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onChanged: (val) {
+                                setModalState(() {
+                                  manualPercentDiscount = double.tryParse(val) ?? 0;
+                                  if (manualPercentDiscount > 100) manualPercentDiscount = 100;
+                                  manualFlatDiscount = (manualPercentDiscount / 100) * calculatedTotal;
+                                  manualFlatCtrl.text = manualFlatDiscount.toStringAsFixed(2);
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (calculatedTotal == 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text('Discount will be applied once you enter a rate.', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.error)),
+                      ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Subtotal', style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSecondary)),
+                              Text('₹ ${calculatedTotal.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          if (finalDiscountAmt > 0) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Discount (${finalDiscountName ?? 'Discount'})', style: GoogleFonts.poppins(fontSize: 13, color: AppColors.error)),
+                                Text('- ₹ ${finalDiscountAmt.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.error)),
+                              ],
+                            ),
+                          ],
+                          const Divider(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Final Amount', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                              Text(
+                                '₹ ${finalAmount.toStringAsFixed(0)}',
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 20, color: AppColors.textPrimary),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: commissionCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Painter Commission (optional)',
+                        prefixText: '₹ ',
+                        hintText: '0',
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF10B981), width: 2),
+                        ),
+                        helperText: 'Leave blank or 0 for no commission',
+                        helperStyle: GoogleFonts.poppins(fontSize: 11),
+                      ),
+                      onChanged: (v) {
+                        setModalState(() {
+                          commissionAmount = double.tryParse(v) ?? 0;
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -367,23 +517,23 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
               ElevatedButton(
                 onPressed: () async {
                   try {
-                    // 1. Generate PDF
                     final pdfBytes = await BillExportService.generateOrderBill(
                       order: order,
                       painterName: painter?.name ?? 'Customer',
                       painterPhone: painter?.phone ?? '',
-                      customTotal: calculatedTotal,
+                      customTotal: finalAmount,
                       items: editableItems.map((e) => {
                         ...e,
                         'amount': (e['quantity'] as num) * (e['rate'] as num),
                       }).toList(),
+                      subtotal: calculatedTotal,
+                      discountAmount: finalDiscountAmt,
+                      discountName: finalDiscountName,
                     );
 
-                    // 2. Upload PDF to Supabase Storage
                     final fileName = 'bill_${order.id.substring(0,8)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
                     final pdfUrl = await ds.uploadBillPdf(order.id, pdfBytes, fileName);
 
-                    // 3. Update Order in DB with PDF URL
                     final List<OrderItemModel> updatedItems = order.items.asMap().entries.map((entry) {
                       final i = entry.key;
                       final item = entry.value;
@@ -397,20 +547,21 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
                     await ds.uploadBill(
                       order.id,
                       pdfUrl,
-                      calculatedTotal,
+                      finalAmount,
                       customItems: updatedItems,
+                      subtotal: calculatedTotal,
+                      discountAmount: finalDiscountAmt,
+                      discountName: finalDiscountName,
                     );
 
-                    // 3b. Save commission if > 0
                     if (commissionAmount > 0) {
                       await ds.updateOrderCommission(order.id, commissionAmount);
                     }
 
-                    // 4. Notify User
                     NotificationService.showBillUploaded(
                       orderId: order.id,
                       brand: order.brand,
-                      amount: calculatedTotal,
+                      amount: finalAmount,
                     );
 
                     if (!mounted) return;
@@ -484,3 +635,4 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
     }
   }
 }
+
