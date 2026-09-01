@@ -54,8 +54,13 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
           ),
           IconButton(
             icon: const Icon(Icons.save_rounded),
-            onPressed: () => _showSaveAndResetDialog(context),
-            tooltip: 'Save & Reset',
+            onPressed: () => _showSaveDialog(context),
+            tooltip: 'Save Monthly Report',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_rounded, color: Colors.redAccent),
+            onPressed: () => _showResetAllDialog(context),
+            tooltip: 'Reset All Points to 0',
           ),
         ],
         bottom: TabBar(
@@ -79,7 +84,7 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
     );
   }
 
-  void _showSaveAndResetDialog(BuildContext context) {
+  void _showSaveDialog(BuildContext context) {
     final ds = ref.read(dataServiceProvider);
     final now = DateTime.now();
     final monthKey =
@@ -93,13 +98,13 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Save & Reset Points', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        title: Text('Save Monthly Report', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'This will:\n• Generate a PDF report of current points\n• Save history for this month\n• Reset all painter points to 0',
+              'This will:\n• Generate a PDF report of current points\n• Save history for this month',
               style: GoogleFonts.poppins(fontSize: 14),
             ),
             if (existingForMonth) ...[
@@ -151,7 +156,7 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await _generatePDFAndReset(context);
+              await _generatePDFAndSave(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -159,7 +164,7 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: Text(
-              existingForMonth ? 'Overwrite & Reset' : 'Proceed',
+              existingForMonth ? 'Overwrite & Save' : 'Proceed',
               style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
             ),
           ),
@@ -168,7 +173,55 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
     );
   }
 
-  Future<void> _generatePDFAndReset(BuildContext context) async {
+  void _showResetAllDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Reset All Points', style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: AppColors.error)),
+        content: Text(
+          'Are you sure you want to reset ALL painters\' points to 0? This action cannot be undone.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(dataServiceProvider).resetAllPaintersPoints();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('All points reset to 0.'), backgroundColor: AppColors.success),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              'Reset All to 0',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generatePDFAndSave(BuildContext context) async {
     try {
       final ds = ref.read(dataServiceProvider);
       final painters = ds.painters.where((p) => p.points > 0).toList()
@@ -214,12 +267,12 @@ class _AdminRewardPointsScreenState extends ConsumerState<AdminRewardPointsScree
       // Show PDF preview and share
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
 
-      // Save and reset points
-      await ds.saveAndResetPoints();
+      // Save history points
+      await ds.saveMonthlyPointsHistory();
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Points saved and reset successfully!'), backgroundColor: AppColors.success),
+          const SnackBar(content: Text('Report saved successfully!'), backgroundColor: AppColors.success),
         );
       }
     } catch (e) {

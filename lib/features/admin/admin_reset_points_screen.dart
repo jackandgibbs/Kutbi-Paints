@@ -17,6 +17,58 @@ class AdminResetPointsScreen extends ConsumerStatefulWidget {
 class _AdminResetPointsScreenState extends ConsumerState<AdminResetPointsScreen> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  bool _syncingAll = false;
+
+  Future<void> _syncAllPoints() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Sync All Points?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Text(
+          'This will recalculate points for ALL painters based on their total scan history. This might take a few moments.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Sync All', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _syncingAll = true);
+    try {
+      await ref.read(dataServiceProvider).recalculateAllPaintersPointsFromScans();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully synced points for all painters.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _syncingAll = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -142,6 +194,31 @@ class _AdminResetPointsScreenState extends ConsumerState<AdminResetPointsScreen>
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+
+          // ── Sync All Button ──────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _syncingAll ? null : _syncAllPoints,
+                icon: _syncingAll 
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.sync_rounded, size: 18),
+                label: Text(
+                  _syncingAll ? 'Syncing...' : 'Sync Everyone\'s Points',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
                 ),
               ),
             ),
@@ -274,6 +351,63 @@ class _PainterPointsCardState extends ConsumerState<_PainterPointsCard> {
     if (confirmed != true) return;
     _pointsCtrl.text = '0';
     await _save();
+  }
+
+  Future<void> _syncPointsFromScans() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Sync Points?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Text(
+          'This will fetch all of ${widget.painter.name}\'s previous scans and recalculate their points based on their scan history.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Sync', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(dataServiceProvider).recalculatePainterPointsFromScans(widget.painter.id);
+      // DataService updates the user model directly, so the UI will update if it listens to the provider.
+      // But we should also update our _pointsCtrl just in case.
+      final updatedPainter = ref.read(dataServiceProvider).getUserById(widget.painter.id);
+      if (updatedPainter != null) {
+        _pointsCtrl.text = updatedPainter.points.toString();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.painter.name}\'s points synced successfully.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -474,6 +608,23 @@ class _PainterPointsCardState extends ConsumerState<_PainterPointsCard> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _saving ? null : _syncPointsFromScans,
+                      icon: const Icon(Icons.sync_rounded, size: 18),
+                      label: Text('Sync Points from Scans',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        minimumSize: const Size.fromHeight(42),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -3496,7 +3496,7 @@ b.createdAt.compareTo(a.createdAt));
     return painterHistory;
   }
 
-  Future<void> saveAndResetPoints() async {
+  Future<void> saveMonthlyPointsHistory() async {
     try {
       final now = DateTime.now();
       final monthYear = '${_getMonthName(now.month)}-${now.year.toString().substring(2)}';
@@ -3540,7 +3540,20 @@ b.createdAt.compareTo(a.createdAt));
         'value': _pointsHistory,
       }, onConflict: 'key');
 
-      // Reset all painter points to 0
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error saving points history: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> resetAllPaintersPoints() async {
+    try {
+      final now = DateTime.now();
+      final allPainters = painters;
+      
+      if (allPainters.isEmpty) return;
+
       for (final painter in allPainters) {
         if (painter.points > 0) {
           final userIdx = _users.indexWhere((u) => u.id == painter.id);
@@ -3553,7 +3566,87 @@ b.createdAt.compareTo(a.createdAt));
 
       notifyListeners();
     } catch (e) {
-      debugPrint('Error saving and resetting points: $e');
+      debugPrint('Error resetting points: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> recalculatePainterPointsFromScans(String painterId) async {
+    try {
+      // Fetch all used QR codes for this painter
+      final List<dynamic> scansData = await _sb
+          .from('qr_codes')
+          .select()
+          .eq('used_by', painterId)
+          .eq('status', 'used');
+      
+      int totalPoints = 0;
+      for (var scan in scansData) {
+        totalPoints += (scan['points'] as num?)?.toInt() ?? 0;
+      }
+
+      // Update local users list
+      final userIdx = _users.indexWhere((u) => u.id == painterId);
+      if (userIdx != -1) {
+        _users[userIdx] = _users[userIdx].copyWith(points: totalPoints);
+      }
+
+      // Update in Supabase
+      await _sb.from('users').update({
+        'points': totalPoints,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', painterId);
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error recalculating points from scans: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> recalculateAllPaintersPointsFromScans() async {
+    try {
+      final allPainters = painters;
+      if (allPainters.isEmpty) return;
+
+      // Fetch all used QR codes
+      final List<dynamic> scansData = await _sb
+          .from('qr_codes')
+          .select()
+          .eq('status', 'used');
+      
+      // Calculate points per painter
+      final Map<String, int> pointsMap = {};
+      for (var scan in scansData) {
+        final usedBy = scan['used_by'] as String?;
+        if (usedBy != null) {
+          final pts = (scan['points'] as num?)?.toInt() ?? 0;
+          pointsMap[usedBy] = (pointsMap[usedBy] ?? 0) + pts;
+        }
+      }
+
+      final now = DateTime.now().toIso8601String();
+
+      // Update all painters
+      for (final painter in allPainters) {
+        final totalPoints = pointsMap[painter.id] ?? 0;
+        
+        // Update local users list
+        final userIdx = _users.indexWhere((u) => u.id == painter.id);
+        if (userIdx != -1) {
+          _users[userIdx] = _users[userIdx].copyWith(points: totalPoints);
+        }
+
+        // Update in Supabase
+        await _sb.from('users').update({
+          'points': totalPoints,
+          'updated_at': now,
+        }).eq('id', painter.id);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error recalculating all points from scans: $e');
       rethrow;
     }
   }
