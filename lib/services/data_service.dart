@@ -16,6 +16,7 @@ import '../models/qr_code_model.dart';
 import '../models/milestone_model.dart';
 import '../models/brand_model.dart';
 import '../models/banner_model.dart';
+import '../models/return_model.dart';
 import 'package:uuid/uuid.dart';
 import 'notification_service.dart';
 
@@ -47,6 +48,10 @@ class DataService extends ChangeNotifier {
   StreamSubscription<List<Map<String, dynamic>>>? _messagesSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _productsSubscription;
+  StreamSubscription<List<Map<String, dynamic>>>? _returnsSubscription;
+
+  // Return requests cache
+  List<ReturnRequestModel> _returnRequests = [];
 
   static const _uuid = Uuid();
 
@@ -57,6 +62,7 @@ class DataService extends ChangeNotifier {
     _initMessageStream();
     _initOrdersStream();
     _initProductsStream();
+    _initReturnsStream();
   }
 
   bool get isLoaded => _isLoaded;
@@ -190,6 +196,8 @@ class DataService extends ChangeNotifier {
         _pointsHistory = List<Map<String, dynamic>>.from(historyData['value'] as List);
       }
     } catch (e) { debugPrint('Error loading points history: $e'); }
+
+    await _loadReturnRequests();
 
     notifyListeners();
   }
@@ -727,14 +735,26 @@ class DataService extends ChangeNotifier {
 
   List<OrderModel> getOrdersByStatus(String status) {
     if (status == 'placed') {
-      return _orders.where((o) => o.status == 'placed' || o.status == 'pending_reveal').toList()
+      return _orders
+          .where((o) =>
+              !o.deletedByAdmin &&
+              (o.status == 'placed' ||
+               o.status == 'pending_reveal' ||
+               o.status == 'udhaari_pending_approval' ||
+               o.status == 'bill_sent' ||
+               o.status == 'billed'))
+          .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
     if (status == 'accepted') {
-      return _orders.where((o) => o.status == 'accepted').toList()
+      return _orders
+          .where((o) => !o.deletedByAdmin && o.status == 'accepted')
+          .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
-    return _orders.where((o) => o.status == status).toList()
+    return _orders
+        .where((o) => !o.deletedByAdmin && o.status == status)
+        .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
@@ -875,6 +895,23 @@ class DataService extends ChangeNotifier {
       _orders.add(newOrder);
       notifyListeners();
     } catch (e) {
+      // If the database is missing subtotal/discount columns, retry without them
+      if (e.toString().contains('discount_amount') ||
+          e.toString().contains('subtotal') ||
+          e.toString().contains('PGRST204')) {
+        try {
+          final fallbackJson = newOrder.toJson()
+            ..remove('subtotal')
+            ..remove('discount_amount')
+            ..remove('discount_name');
+          await _sb.from('orders').insert(fallbackJson);
+          _orders.add(newOrder);
+          notifyListeners();
+          return newOrder;
+        } catch (innerError) {
+          debugPrint('Fallback order insert failed: $innerError');
+        }
+      }
       debugPrint('Error placing order: $e');
       rethrow;
     }
@@ -922,6 +959,25 @@ class DataService extends ChangeNotifier {
         // Note: Ledger entry and stock decrement will happen when admin approves the udhaari request
 
       } catch (e) {
+        if (e.toString().contains('discount_amount') ||
+            e.toString().contains('subtotal') ||
+            e.toString().contains('PGRST204')) {
+          try {
+            await _sb.from('orders').update({
+              'bill_image_url': imageUrl,
+              'total_amount': totalAmount,
+              'items': (customItems ?? updatedOrder.items).map((e) => e.toJson()).toList(),
+              'status': 'udhaari_pending_approval',
+              'payment_method': 'udhaari',
+              'payment_status': 'pending',
+              'hide_amount': hideAmount,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', orderId);
+            return;
+          } catch (innerError) {
+            debugPrint('Fallback upload bill failed: $innerError');
+          }
+        }
         debugPrint('Error uploading bill: $e');
         throw Exception('Failed to upload bill: $e');
       }
@@ -1754,6 +1810,33 @@ class DataService extends ChangeNotifier {
           'updated_at': DateTime.now().toIso8601String(),
         }).eq('id', orderId);
 
+        // If transitioning from pending/udhaari_pending_approval to accepted or beyond, ensure payment status is udhaari and ledger is credited
+        if ((oldStatus == 'udhaari_pending_approval' || order.paymentStatus == 'pending') &&
+            order.paymentMethod == 'udhaari' &&
+            (status == 'accepted' || status == 'preparing' || status == 'dispatched' || status == 'delivered')) {
+          _orders[i] = _orders[i].copyWith(paymentStatus: 'udhaari');
+          try {
+            await _sb.from('orders').update({
+              'payment_status': 'udhaari',
+            }).eq('id', orderId);
+
+            final existingEntries = getLedgerForPainter(order.painterId);
+            final alreadyLogged = existingEntries.any((e) => e.orderId == order.id && e.type == 'credit');
+            if (!alreadyLogged && order.totalAmount > 0) {
+              await addLedgerEntry(
+                painterId: order.painterId,
+                type: 'credit',
+                amount: order.totalAmount,
+                orderId: order.id,
+                note: 'Order #${order.id.substring(0, order.id.length >= 8 ? 8 : order.id.length)} — Udhaari Approved',
+                createdBy: 'system',
+              );
+            }
+          } catch (e) {
+            debugPrint('Error updating udhaari payment status: $e');
+          }
+        }
+
         // Decrement stock if transitioning to 'delivered'
         if (status == 'delivered' && oldStatus != 'delivered') {
           for (final item in order.items) {
@@ -2185,53 +2268,110 @@ class DataService extends ChangeNotifier {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return _orders
-        .where((o) => o.createdAt.isAfter(today) && (o.paymentStatus == 'fully_paid' || o.paymentStatus == 'partially_paid' || o.paymentStatus == 'udhaari'))
+        .where((o) =>
+            !o.deletedByAdmin &&
+            o.status != 'cancelled' &&
+            o.status != 'deleted' &&
+            o.createdAt.isAfter(today) &&
+            (o.paymentStatus == 'fully_paid' ||
+                o.paymentStatus == 'partially_paid' ||
+                o.paymentStatus == 'udhaari'))
         .fold(0.0, (sum, o) => sum + o.totalAmount);
   }
 
   int getTodayOrdersCount() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return _orders.where((o) => o.createdAt.isAfter(today)).length;
+    return _orders
+        .where((o) =>
+            !o.deletedByAdmin &&
+            o.status != 'cancelled' &&
+            o.status != 'deleted' &&
+            o.createdAt.isAfter(today))
+        .length;
   }
 
-  /// Returns top painter by total order value
+  /// Returns top painter by total valid order value (excludes deleted, cancelled, and refunded orders)
   Map<String, dynamic>? getTopPainter() {
-    if (_orders.isEmpty) return null;
+    final validOrders = _orders.where((o) =>
+        !o.deletedByAdmin &&
+        o.status != 'cancelled' &&
+        o.status != 'deleted');
+
+    if (validOrders.isEmpty) return null;
     final spendMap = <String, double>{};
-    for (final o in _orders) {
-      spendMap[o.painterId] = (spendMap[o.painterId] ?? 0) + o.totalAmount;
+    for (final o in validOrders) {
+      // Deduct any completed refunds for this order
+      final refundedForOrder = _returnRequests
+          .where((r) => r.orderId == o.id && r.status == ReturnStatus.refunded)
+          .fold<double>(0.0, (sum, r) => sum + r.refundAmount);
+      final netOrderAmount = (o.totalAmount - refundedForOrder).clamp(0.0, double.infinity);
+
+      if (netOrderAmount > 0) {
+        spendMap[o.painterId] = (spendMap[o.painterId] ?? 0) + netOrderAmount;
+      }
     }
     if (spendMap.isEmpty) return null;
-    final topId = spendMap.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-    final painter = getUserById(topId);
-    return {'name': painter?.name ?? 'Unknown', 'amount': spendMap[topId]};
+
+    final validEntries = spendMap.entries.where((e) {
+      final painter = getUserById(e.key);
+      return painter != null && e.value > 0;
+    }).toList();
+
+    if (validEntries.isEmpty) return null;
+
+    final top = validEntries.reduce((a, b) => a.value > b.value ? a : b);
+    final painter = getUserById(top.key);
+    return {'name': painter?.name ?? 'Unknown', 'amount': top.value};
   }
 
-  /// Returns top product by order quantity
+  /// Returns top product by order quantity (excludes deleted and cancelled orders)
   Map<String, dynamic>? getTopProduct() {
-    if (_orders.isEmpty) return null;
+    final validOrders = _orders.where((o) =>
+        !o.deletedByAdmin &&
+        o.status != 'cancelled' &&
+        o.status != 'deleted');
+
+    if (validOrders.isEmpty) return null;
     final qtyMap = <String, int>{};
     final nameMap = <String, String>{};
-    for (final o in _orders) {
+    for (final o in validOrders) {
       for (final item in o.items) {
         qtyMap[item.productId] = (qtyMap[item.productId] ?? 0) + item.quantity;
         nameMap[item.productId] = item.productName;
       }
     }
+    if (qtyMap.isEmpty) return null;
     final topId = qtyMap.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-    return {'name': nameMap[topId], 'quantity': qtyMap[topId]};
+    return {'name': nameMap[topId] ?? 'Unknown', 'quantity': qtyMap[topId]};
   }
 
-  /// Returns top painters ranked by total spend
+  /// Returns top painters ranked by total spend (excludes deleted, cancelled, and refunded orders)
   List<Map<String, dynamic>> getPainterLeaderboard({int limit = 5}) {
+    final validOrders = _orders.where((o) =>
+        !o.deletedByAdmin &&
+        o.status != 'cancelled' &&
+        o.status != 'deleted');
+
     final spendMap = <String, double>{};
-    for (final o in _orders) {
-      spendMap[o.painterId] = (spendMap[o.painterId] ?? 0) + o.totalAmount;
+    for (final o in validOrders) {
+      final refundedForOrder = _returnRequests
+          .where((r) => r.orderId == o.id && r.status == ReturnStatus.refunded)
+          .fold<double>(0.0, (sum, r) => sum + r.refundAmount);
+      final netOrderAmount = (o.totalAmount - refundedForOrder).clamp(0.0, double.infinity);
+
+      if (netOrderAmount > 0) {
+        spendMap[o.painterId] = (spendMap[o.painterId] ?? 0) + netOrderAmount;
+      }
     }
-    final sorted = spendMap.entries.toList()
+
+    final validEntries = spendMap.entries.where((e) {
+      final painter = getUserById(e.key);
+      return painter != null && e.value > 0;
+    }).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    return sorted.take(limit).map((e) {
+
+    return validEntries.take(limit).map((e) {
       final painter = getUserById(e.key);
       return {
         'painterId': e.key,
@@ -2266,6 +2406,7 @@ class DataService extends ChangeNotifier {
     }
 
     for (final order in _orders) {
+      if (order.deletedByAdmin || order.status == 'cancelled' || order.status == 'deleted') continue;
       if (order.createdAt.isBefore(fourWeeksAgo)) continue;
       final weekIndex = ((now.difference(order.createdAt).inDays) / 7).floor();
       if (weekIndex < 0 || weekIndex > 3) continue;
@@ -2487,13 +2628,21 @@ class DataService extends ChangeNotifier {
       final nextDay = day.add(const Duration(days: 1));
       final dayRevenue = _orders
           .where((o) =>
+              !o.deletedByAdmin &&
+              o.status != 'cancelled' &&
+              o.status != 'deleted' &&
               o.createdAt.isAfter(day) &&
               o.createdAt.isBefore(nextDay) &&
               (o.paymentStatus == 'fully_paid' || o.paymentStatus == 'partially_paid' || o.paymentStatus == 'udhaari'))
           .fold(0.0, (sum, o) => sum + o.totalAmount);
 
       final dayOrders = _orders
-          .where((o) => o.createdAt.isAfter(day) && o.createdAt.isBefore(nextDay))
+          .where((o) =>
+              !o.deletedByAdmin &&
+              o.status != 'cancelled' &&
+              o.status != 'deleted' &&
+              o.createdAt.isAfter(day) &&
+              o.createdAt.isBefore(nextDay))
           .length;
 
       results.add({
@@ -2905,6 +3054,7 @@ class DataService extends ChangeNotifier {
     _messagesSubscription?.cancel();
     _ordersSubscription?.cancel();
     _productsSubscription?.cancel();
+    _returnsSubscription?.cancel();
     super.dispose();
   }
 
@@ -3660,6 +3810,619 @@ b.createdAt.compareTo(a.createdAt));
   String _getMonthName(int month) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
+  }
+
+  // ─── RETURNS ───────────────────────────────────────────────────────────────
+
+  /// Realtime subscription so return status updates immediately reflect in UI.
+  void _initReturnsStream() {
+    _returnsSubscription?.cancel();
+    try {
+      _returnsSubscription = _sb
+          .from('return_requests')
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false)
+          .listen(
+        (data) {
+          // Merge items from existing cache to avoid extra fetches
+          final incoming = data.map((json) {
+            final existing = _returnRequests.firstWhere(
+              (r) => r.id == json['id'],
+              orElse: () => ReturnRequestModel.fromJson(json),
+            );
+            return ReturnRequestModel.fromJson(json).copyWith(
+              items: existing.items,
+            );
+          }).toList();
+          final hasMissingItems = incoming.any((r) => r.items.isEmpty);
+          _returnRequests = incoming;
+          _syncReturnedOrdersStatus();
+          notifyListeners();
+          if (hasMissingItems) {
+            _loadReturnRequests();
+          }
+        },
+        onError: (e) => debugPrint('Returns stream error: $e'),
+      );
+    } catch (e) {
+      debugPrint('Error initializing returns stream: $e');
+    }
+  }
+
+  // ── Read ──────────────────────────────────────────────────────────────────
+
+  List<ReturnRequestModel> getReturnRequestsByPainter(String painterId) {
+    return _returnRequests
+        .where((r) => r.userId == painterId)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  List<ReturnRequestModel> getAllReturnRequests() {
+    return List.from(_returnRequests)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  List<ReturnRequestModel> getReturnRequestsByStatus(String status) {
+    return _returnRequests
+        .where((r) => r.status.value == status)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  List<ReturnRequestModel> getReturnRequestsForOrder(String orderId) {
+    return _returnRequests
+        .where((r) => r.orderId == orderId)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  ReturnRequestModel? getReturnRequestById(String id) {
+    try {
+      return _returnRequests.firstWhere((r) => r.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Checks if an order has any active/approved return request (approved, pickup, received, refunding, refunded)
+  bool hasApprovedReturnForOrder(String orderId) {
+    if (orderId.isEmpty) return false;
+    return _returnRequests.any((r) =>
+        r.orderId == orderId &&
+        r.status != ReturnStatus.requested &&
+        r.status != ReturnStatus.rejected &&
+        r.status != ReturnStatus.cancelled);
+  }
+
+  /// Gets the approved return request for an order if one exists
+  ReturnRequestModel? getApprovedReturnForOrder(String orderId) {
+    if (orderId.isEmpty) return null;
+    try {
+      return _returnRequests.firstWhere((r) =>
+          r.orderId == orderId &&
+          r.status != ReturnStatus.requested &&
+          r.status != ReturnStatus.rejected &&
+          r.status != ReturnStatus.cancelled);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Summary counts for admin dashboard badge / stats cards.
+  Map<String, int> getReturnStatusCounts() {
+    final counts = <String, int>{};
+    for (final status in ReturnStatus.values) {
+      counts[status.value] =
+          _returnRequests.where((r) => r.status == status).length;
+    }
+    return counts;
+  }
+
+  int get pendingReturnCount =>
+      _returnRequests
+          .where((r) => r.status == ReturnStatus.requested)
+          .length;
+
+  // ── Eligibility ───────────────────────────────────────────────────────────
+
+  /// Returns true if an order is within the return window and delivered.
+  /// Uses order.updatedAt as the delivery timestamp proxy.
+  bool isOrderReturnEligible(OrderModel order) {
+    if (order.status != 'delivered') return false;
+    final deadline = order.updatedAt.add(Duration(days: kReturnWindowDays));
+    return DateTime.now().isBefore(deadline);
+  }
+
+  /// Returns days remaining in the return window (negative = expired).
+  int returnWindowDaysRemaining(OrderModel order) {
+    final deadline = order.updatedAt.add(Duration(days: kReturnWindowDays));
+    return deadline.difference(DateTime.now()).inDays;
+  }
+
+  /// Returns how many units of a specific item (by index) have already been
+  /// returned (or are in an active return request) for a given order.
+  int getAlreadyReturnedQuantity(String orderId, int itemIndex) {
+    final activeStatuses = [
+      ReturnStatus.requested,
+      ReturnStatus.approved,
+      ReturnStatus.pickupScheduled,
+      ReturnStatus.pickedUp,
+      ReturnStatus.received,
+      ReturnStatus.refundProcessing,
+      ReturnStatus.refunded,
+    ];
+    int total = 0;
+    for (final req in _returnRequests) {
+      if (req.orderId != orderId) continue;
+      if (!activeStatuses.contains(req.status)) continue;
+      for (final item in req.items) {
+        if (item.itemIndex == itemIndex) {
+          total += item.quantity;
+        }
+      }
+    }
+    return total;
+  }
+
+  // ── Create ────────────────────────────────────────────────────────────────
+
+  /// Creates a new return request with its items.
+  /// [items] is a list of maps with keys: itemIndex, productId, productName,
+  /// bucketSize, unitPrice, quantity, colorName, colorHex, reason, condition.
+  Future<ReturnRequestModel> createReturnRequest({
+    required String orderId,
+    required String userId,
+    required String reason,
+    String? description,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    if (items.isEmpty) {
+      throw Exception('At least one item must be selected for return.');
+    }
+
+    // Validate quantity limits
+    final order = getOrderById(orderId);
+    if (order == null) throw Exception('Order not found.');
+    if (!isOrderReturnEligible(order)) {
+      throw Exception('Order is not eligible for return.');
+    }
+    for (final itemData in items) {
+      final idx = (itemData['itemIndex'] as int);
+      final reqQty = (itemData['quantity'] as int);
+      final originalQty = (order.items[idx].quantity);
+      final alreadyReturned = getAlreadyReturnedQuantity(orderId, idx);
+      final available = originalQty - alreadyReturned;
+      if (reqQty > available) {
+        throw Exception(
+          'Cannot return $reqQty units of "${order.items[idx].productName}" — '
+          'only $available unit(s) available for return.',
+        );
+      }
+    }
+
+    final returnId = _uuid.v4();
+    final now = DateTime.now();
+
+    // Insert return_requests row
+    await _sb.from('return_requests').insert({
+      'id': returnId,
+      'order_id': orderId,
+      'user_id': userId,
+      'status': 'requested',
+      'reason': reason,
+      'description': description,
+      'refund_amount': 0,
+      'refund_method': 'original_payment',
+      'requested_at': now.toIso8601String(),
+      'created_at': now.toIso8601String(),
+      'updated_at': now.toIso8601String(),
+    });
+
+    // Insert return_request_items rows
+    final itemRows = items.map((itemData) {
+      return {
+        'return_request_id': returnId,
+        'order_id': orderId,
+        'item_index': itemData['itemIndex'],
+        'product_id': itemData['productId'] ?? '',
+        'product_name': itemData['productName'] ?? '',
+        'bucket_size': itemData['bucketSize'] ?? '1L',
+        'unit_price': itemData['unitPrice'] ?? 0.0,
+        'color_name': itemData['colorName'],
+        'color_hex': itemData['colorHex'],
+        'quantity': itemData['quantity'],
+        'reason': itemData['reason'],
+        'condition': itemData['condition'] ?? 'unknown',
+      };
+    }).toList();
+
+    final insertedItems =
+        await _sb.from('return_request_items').insert(itemRows).select();
+
+    final returnItems = (insertedItems as List)
+        .map((e) => ReturnRequestItemModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final newRequest = ReturnRequestModel(
+      id: returnId,
+      orderId: orderId,
+      userId: userId,
+      status: ReturnStatus.requested,
+      reason: reason,
+      description: description,
+      refundAmount: 0,
+      items: returnItems,
+      requestedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    _returnRequests.insert(0, newRequest);
+    notifyListeners();
+
+    // Notify painter
+    NotificationService.showReturnUpdate(
+      returnId: newRequest.displayId,
+      status: ReturnStatus.requested,
+    );
+
+    return newRequest;
+  }
+
+  // ── Cancel (painter) ──────────────────────────────────────────────────────
+
+  Future<void> cancelReturnRequest(String returnId) async {
+    final idx = _returnRequests.indexWhere((r) => r.id == returnId);
+    if (idx == -1) throw Exception('Return request not found.');
+    final current = _returnRequests[idx];
+    if (!current.status.canBeCancelledByUser) {
+      throw Exception(
+        'Cannot cancel a return in status "${current.status.label}".',
+      );
+    }
+
+    _returnRequests[idx] = current.copyWith(
+      status: ReturnStatus.cancelled,
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners();
+
+    try {
+      await _sb.from('return_requests').update({
+        'status': 'cancelled',
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', returnId);
+    } catch (e) {
+      debugPrint('Error cancelling return request: $e');
+      rethrow;
+    }
+  }
+
+  // ── Admin: Approve / Reject ───────────────────────────────────────────────
+
+  Future<void> approveReturn(String returnId, {String? adminNote}) async {
+    await _adminAdvanceReturnStatus(
+      returnId: returnId,
+      newStatus: ReturnStatus.approved,
+      adminNote: adminNote,
+      timestampField: 'approved_at',
+    );
+    NotificationService.showReturnUpdate(
+      returnId: 'RET-${returnId.substring(0, 8).toUpperCase()}',
+      status: ReturnStatus.approved,
+    );
+  }
+
+  Future<void> rejectReturn(
+    String returnId, {
+    required String reason,
+  }) async {
+    await _adminAdvanceReturnStatus(
+      returnId: returnId,
+      newStatus: ReturnStatus.rejected,
+      adminNote: reason,
+      timestampField: 'rejected_at',
+    );
+    NotificationService.showReturnUpdate(
+      returnId: 'RET-${returnId.substring(0, 8).toUpperCase()}',
+      status: ReturnStatus.rejected,
+    );
+  }
+
+  /// Admin advances the return through the standard lifecycle.
+  Future<void> advanceReturnStatus(
+    String returnId,
+    ReturnStatus newStatus, {
+    String? adminNote,
+  }) async {
+    String? tsField;
+    switch (newStatus) {
+      case ReturnStatus.pickupScheduled:
+        tsField = 'pickup_scheduled_at';
+        break;
+      case ReturnStatus.pickedUp:
+        tsField = 'picked_up_at';
+        break;
+      case ReturnStatus.received:
+        tsField = 'received_at';
+        break;
+      case ReturnStatus.refundProcessing:
+        tsField = 'refund_processing_at';
+        break;
+      case ReturnStatus.refunded:
+        tsField = 'refunded_at';
+        break;
+      default:
+        tsField = null;
+    }
+    await _adminAdvanceReturnStatus(
+      returnId: returnId,
+      newStatus: newStatus,
+      adminNote: adminNote,
+      timestampField: tsField,
+    );
+    NotificationService.showReturnUpdate(
+      returnId: 'RET-${returnId.substring(0, 8).toUpperCase()}',
+      status: newStatus,
+    );
+  }
+
+  /// Internal helper: updates local cache + Supabase for an admin status change.
+  Future<void> _adminAdvanceReturnStatus({
+    required String returnId,
+    required ReturnStatus newStatus,
+    String? adminNote,
+    String? timestampField,
+  }) async {
+    final idx = _returnRequests.indexWhere((r) => r.id == returnId);
+    if (idx == -1) throw Exception('Return request not found.');
+    final current = _returnRequests[idx];
+
+    // Client-side transition guard (DB trigger is the authoritative check)
+    if (!current.status.allowedNextStatuses.contains(newStatus)) {
+      throw Exception(
+        'Invalid status transition: ${current.status.label} → ${newStatus.label}',
+      );
+    }
+
+    final now = DateTime.now();
+    // Compute refund amount when entering refund_processing
+    double refundAmount = current.refundAmount;
+    if (newStatus == ReturnStatus.refundProcessing) {
+      refundAmount = current.items
+          .fold(0.0, (sum, item) => sum + item.unitPrice * item.quantity);
+    }
+
+    _returnRequests[idx] = current.copyWith(
+      status: newStatus,
+      adminNote: adminNote ?? current.adminNote,
+      refundAmount: refundAmount,
+      approvedAt: newStatus == ReturnStatus.approved ? now : current.approvedAt,
+      pickupScheduledAt: newStatus == ReturnStatus.pickupScheduled ? now : current.pickupScheduledAt,
+      pickedUpAt: newStatus == ReturnStatus.pickedUp ? now : current.pickedUpAt,
+      receivedAt: newStatus == ReturnStatus.received ? now : current.receivedAt,
+      refundProcessingAt: newStatus == ReturnStatus.refundProcessing ? now : current.refundProcessingAt,
+      refundedAt: newStatus == ReturnStatus.refunded ? now : current.refundedAt,
+      rejectedAt: newStatus == ReturnStatus.rejected ? now : current.rejectedAt,
+      updatedAt: now,
+    );
+    notifyListeners();
+
+    try {
+      final updateData = <String, dynamic>{
+        'status': newStatus.value,
+        'refund_amount': refundAmount,
+        'updated_at': now.toIso8601String(),
+      };
+      if (adminNote != null) updateData['admin_note'] = adminNote;
+      if (timestampField != null) {
+        updateData[timestampField] = now.toIso8601String();
+      }
+      await _sb
+          .from('return_requests')
+          .update(updateData)
+          .eq('id', returnId);
+
+      if (newStatus == ReturnStatus.approved) {
+        await _handleOrderReturned(current);
+      }
+    } catch (e) {
+      debugPrint('Error advancing return status: $e');
+      rethrow;
+    }
+  }
+
+  /// Syncs order statuses in local memory for any approved return requests
+  void _syncReturnedOrdersStatus() {
+    bool changed = false;
+    for (final ret in _returnRequests) {
+      if (ret.status != ReturnStatus.requested &&
+          ret.status != ReturnStatus.rejected &&
+          ret.status != ReturnStatus.cancelled &&
+          ret.orderId.isNotEmpty) {
+        final orderIdx = _orders.indexWhere((o) => o.id == ret.orderId);
+        if (orderIdx != -1) {
+          final o = _orders[orderIdx];
+          if (o.status != 'returned') {
+            _orders[orderIdx] = o.copyWith(
+              status: 'returned',
+              paymentStatus: (o.paymentMethod == 'udhaari' || o.paymentStatus == 'udhaari')
+                  ? 'returned'
+                  : o.paymentStatus,
+            );
+            changed = true;
+          }
+        }
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  /// Handles when a return request is approved:
+  /// 1. Updates order status to 'returned' in Supabase & memory
+  /// 2. If it is an Udhaari order, marks payment_status as 'returned'
+  /// 3. Settles outstanding udhaari debt in ledger via offsetting debit entry
+  Future<void> _handleOrderReturned(ReturnRequestModel returnReq) async {
+    if (returnReq.orderId.isEmpty) return;
+    final orderId = returnReq.orderId;
+    final orderIdx = _orders.indexWhere((o) => o.id == orderId);
+    final now = DateTime.now();
+
+    OrderModel? order = orderIdx != -1 ? _orders[orderIdx] : null;
+
+    // 1. Update order in Supabase
+    try {
+      final updateData = <String, dynamic>{
+        'status': 'returned',
+        'updated_at': now.toIso8601String(),
+      };
+      if (order != null && (order.paymentMethod == 'udhaari' || order.paymentStatus == 'udhaari')) {
+        updateData['payment_status'] = 'returned';
+      }
+      await _sb.from('orders').update(updateData).eq('id', orderId);
+    } catch (e) {
+      debugPrint('Error updating order status to returned: $e');
+    }
+
+    // 2. Update order in memory
+    if (orderIdx != -1 && order != null) {
+      _orders[orderIdx] = order.copyWith(
+        status: 'returned',
+        paymentStatus: (order.paymentMethod == 'udhaari' || order.paymentStatus == 'udhaari')
+            ? 'returned'
+            : order.paymentStatus,
+        updatedAt: now,
+      );
+      notifyListeners();
+    }
+
+    // 3. Manage Udhaari / Ledger:
+    // If order was Udhaari, offset any existing net debt with a debit ledger entry
+    final painterId = order?.painterId ?? returnReq.userId;
+    final existingCredits = _ledger.where((e) => e.orderId == orderId && e.isCredit).toList();
+    final existingDebits = _ledger.where((e) => e.orderId == orderId && !e.isCredit).toList();
+    final totalCredit = existingCredits.fold<double>(0.0, (s, e) => s + e.amount);
+    final totalDebit = existingDebits.fold<double>(0.0, (s, e) => s + e.amount);
+    final netOwed = totalCredit - totalDebit;
+
+    if (netOwed > 0) {
+      try {
+        await addLedgerEntry(
+          painterId: painterId,
+          type: 'debit',
+          amount: netOwed,
+          orderId: orderId,
+          note: 'Order #${orderId.substring(0, orderId.length >= 8 ? 8 : orderId.length)} — Returned (Udhaari Waived)',
+          createdBy: 'system',
+        );
+      } catch (e) {
+        debugPrint('Error adding ledger entry for returned udhaari: $e');
+      }
+    }
+  }
+
+  /// Loads return requests with their items from Supabase (initial + refresh).
+  Future<void> _loadReturnRequests() async {
+    try {
+      final data = await _sb
+          .from('return_requests')
+          .select('*, return_request_items(*)')
+          .order('created_at', ascending: false);
+      _returnRequests =
+          (data as List)
+              .map((e) => ReturnRequestModel.fromJson(e as Map<String, dynamic>))
+              .toList();
+      _syncReturnedOrdersStatus();
+    } catch (e) {
+      debugPrint('Error loading return requests: $e');
+    }
+  }
+
+  /// Ensures return items are loaded for a specific return request if missing
+  Future<void> fetchReturnItemsIfEmpty(String returnId) async {
+    final idx = _returnRequests.indexWhere((r) => r.id == returnId);
+    if (idx != -1 && _returnRequests[idx].items.isEmpty) {
+      try {
+        final data = await _sb
+            .from('return_request_items')
+            .select()
+            .eq('return_request_id', returnId);
+        if (data.isNotEmpty) {
+          final items = data
+              .map((e) => ReturnRequestItemModel.fromJson(e))
+              .toList();
+          _returnRequests[idx] = _returnRequests[idx].copyWith(items: items);
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Error fetching return items: $e');
+      }
+    }
+  }
+
+  /// Upload return bill PDF to Supabase Storage and return public URL
+  Future<String> uploadReturnBillPdf(String returnId, dynamic pdfBytes, String fileName) async {
+    try {
+      final path = 'return_bills/$returnId/$fileName';
+      await _sb.storage.from('paint-images').uploadBinary(
+        path,
+        pdfBytes,
+        fileOptions: const FileOptions(upsert: true, contentType: 'application/pdf'),
+      );
+      final url = _sb.storage.from('paint-images').getPublicUrl(path);
+      return url;
+    } catch (e) {
+      debugPrint('Error uploading return bill PDF: $e');
+      throw Exception('Failed to upload return bill PDF: $e');
+    }
+  }
+
+  /// Attach return bill PDF URL to return request and update refund amount
+  Future<void> attachReturnBill({
+    required String returnId,
+    required String billUrl,
+    required double refundAmount,
+  }) async {
+    final idx = _returnRequests.indexWhere((r) => r.id == returnId);
+    if (idx != -1) {
+      final current = _returnRequests[idx];
+      _returnRequests[idx] = current.copyWith(
+        billUrl: billUrl,
+        refundAmount: refundAmount,
+        updatedAt: DateTime.now(),
+      );
+      notifyListeners();
+
+      try {
+        await _sb.from('return_requests').update({
+          'bill_url': billUrl,
+          'refund_amount': refundAmount,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', returnId);
+      } catch (e) {
+        if (e.toString().contains('bill_url') || e.toString().contains('PGRST204')) {
+          try {
+            final oldNote = current.cleanAdminNote ?? '';
+            final newNote = oldNote.isEmpty
+                ? '[RETURN_BILL_URL:$billUrl]'
+                : '$oldNote\n[RETURN_BILL_URL:$billUrl]';
+            await _sb.from('return_requests').update({
+              'admin_note': newNote,
+              'refund_amount': refundAmount,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', returnId);
+            return;
+          } catch (innerError) {
+            debugPrint('Fallback return bill update failed: $innerError');
+          }
+        }
+        debugPrint('Error attaching return bill: $e');
+        throw Exception('Failed to attach return bill: $e');
+      }
+    }
   }
 }
 

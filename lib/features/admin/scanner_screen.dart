@@ -237,6 +237,52 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
     return Color(int.parse(hex, radix: 16));
   }
 
+  void _showManualEntryDialog() {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Enter Product Code',
+            style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: TextField(
+          controller: textCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Product ID or Color Code',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (val) {
+            Navigator.pop(ctx);
+            if (val.trim().isNotEmpty) {
+              _showProductDialog(val.trim());
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.adminPrimary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              final val = textCtrl.text.trim();
+              Navigator.pop(ctx);
+              if (val.isNotEmpty) {
+                _showProductDialog(val);
+              }
+            },
+            child: const Text('Find Product'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -248,65 +294,77 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen> {
         ),
         backgroundColor: AppColors.adminPrimary,
         foregroundColor: Colors.white,
-      ),
-      body: Stack(
-        children: [
-          // Camera Preview
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-          ),
-
-          // Overlay
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: _scannedCode != null ? AppColors.success : Colors.white70,
-                width: 2,
-              ),
-            ),
-          ),
-
-          // Scan guide overlay
-          Center(
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColors.success.withValues(alpha: 0.7),
-                  width: 3,
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-
-          // Bottom instructions
-          Positioned(
-            bottom: 60,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                _scannedCode != null
-                    ? 'Scanned: $_scannedCode'
-                    : 'Point camera at product barcode or QR code',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+        actions: [
+          IconButton(
+            tooltip: 'Enter code manually',
+            icon: const Icon(Icons.keyboard_rounded),
+            onPressed: _showManualEntryDialog,
           ),
         ],
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Stack(
+            children: [
+              // Camera Preview
+              MobileScanner(
+                controller: _controller,
+                onDetect: _onDetect,
+              ),
+
+              // Overlay
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: _scannedCode != null ? AppColors.success : Colors.white70,
+                    width: 2,
+                  ),
+                ),
+              ),
+
+              // Scan guide overlay
+              Center(
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: AppColors.success.withValues(alpha: 0.7),
+                      width: 3,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+
+              // Bottom instructions
+              Positioned(
+                bottom: 60,
+                left: 20,
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    _scannedCode != null
+                        ? 'Scanned: $_scannedCode'
+                        : 'Point camera at product barcode or QR code',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

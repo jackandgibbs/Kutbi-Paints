@@ -203,7 +203,10 @@ class _PainterScannerScreenState extends ConsumerState<PainterScannerScreen>
           ),
         ],
       ),
-      body: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
         children: [
           // ─── Scanner Area ───
           Expanded(
@@ -372,6 +375,8 @@ class _PainterScannerScreenState extends ConsumerState<PainterScannerScreen>
             ),
           ),
         ],
+          ),
+        ),
       ),
     );
   }

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 
 class AddPainterScreen extends ConsumerStatefulWidget {
@@ -74,9 +76,11 @@ class _AddPainterScreenState extends ConsumerState<AddPainterScreen> {
         title: Text('Add Painter',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
+      body: ResponsiveCenter(
+        maxWidth: Responsive.formMaxWidth(context),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
           key: _formKey,
           child: Column(
             children: [
@@ -194,6 +198,7 @@ class _AddPainterScreenState extends ConsumerState<AddPainterScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

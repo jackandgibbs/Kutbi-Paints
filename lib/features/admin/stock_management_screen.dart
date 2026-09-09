@@ -12,18 +12,6 @@ import '../../services/data_service.dart';
 
 const _kRowId = 'main';
 
-const List<Map<String, String>> _defaultBases = [
-  {'name': 'White', 'label': 'Direct White'},
-  {'name': 'Pe 1', 'label': 'Pastel'},
-  {'name': 'Pe 2', 'label': 'Mid Tone'},
-  {'name': 'Pe 5', 'label': 'Organic Yellow'},
-  {'name': 'Pe 6', 'label': 'Organic Red'},
-  {'name': 'Pe 99', 'label': 'Clear'},
-];
-
-Map<String, _BaseEntry> _makeDefaultBases() =>
-    {for (var b in _defaultBases) '${b['name']} (${b['label']})': _BaseEntry(qty: 0, threshold: 5)};
-
 class StockManagementScreen extends ConsumerStatefulWidget {
   const StockManagementScreen({super.key});
   @override
@@ -113,12 +101,13 @@ class _StockManagementScreenState extends ConsumerState<StockManagementScreen> {
 
   Map<String, _BaseEntry> _basesFor(String productId) {
     if (!_stockData.containsKey(productId)) {
-      _stockData[productId] = _makeDefaultBases();
+      _stockData[productId] = {};
     }
     return _stockData[productId]!;
   }
 
   String _worstStatus(Map<String, _BaseEntry> bases) {
+    if (bases.isEmpty) return 'no_bases';
     if (bases.values.any((b) => b.status == 'out_of_stock')) return 'out_of_stock';
     if (bases.values.any((b) => b.status == 'low_stock')) return 'low_stock';
     return 'in_stock';
@@ -300,6 +289,7 @@ class _ProductCardState extends State<_ProductCard> {
   void dispose() { _newBaseCtrl.dispose(); super.dispose(); }
 
   Color _dotColor(String status) {
+    if (status == 'no_bases') return const Color(0xFF94A3B8);
     if (status == 'out_of_stock') return AppColors.error;
     if (status == 'low_stock') return const Color(0xFFF59E0B);
     return const Color(0xFF10B981);
@@ -316,6 +306,7 @@ class _ProductCardState extends State<_ProductCard> {
   }
 
   String get _worstStatus {
+    if (widget.bases.isEmpty) return 'no_bases';
     if (widget.bases.values.any((b) => b.status == 'out_of_stock')) return 'out_of_stock';
     if (widget.bases.values.any((b) => b.status == 'low_stock')) return 'low_stock';
     return 'in_stock';
@@ -404,17 +395,32 @@ class _ProductCardState extends State<_ProductCard> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Table Header
-              Row(children: [
-                Expanded(flex: 3, child: Text('Base/Variant', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight))),
-                Expanded(flex: 2, child: Text('Qty', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight), textAlign: TextAlign.center)),
-                Expanded(flex: 2, child: Text('Threshold', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight), textAlign: TextAlign.center)),
-                Expanded(flex: 2, child: Text('Status', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight), textAlign: TextAlign.center)),
-                const SizedBox(width: 60),
-              ]),
-              const SizedBox(height: 8),
-              ...widget.bases.entries.map((e) => _baseRow(e.key, e.value)),
-              const SizedBox(height: 16),
+              if (widget.bases.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Center(
+                    child: Text(
+                      'No bases added yet. Add a base below.',
+                      style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                )
+              else ...[
+                // Table Header
+                Row(children: [
+                  Expanded(flex: 3, child: Text('Base/Variant', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight))),
+                  const SizedBox(width: 4),
+                  Expanded(flex: 3, child: Text('Qty', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight), textAlign: TextAlign.center)),
+                  const SizedBox(width: 4),
+                  Expanded(flex: 2, child: Text('Threshold', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight), textAlign: TextAlign.center)),
+                  const SizedBox(width: 4),
+                  Expanded(flex: 2, child: Text('Status', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSlateLight), textAlign: TextAlign.center)),
+                  const SizedBox(width: 52),
+                ]),
+                const SizedBox(height: 8),
+                ...widget.bases.entries.map((e) => _baseRow(e.key, e.value)),
+                const SizedBox(height: 16),
+              ],
               // Add base
               Row(children: [
                 Expanded(child: TextField(
@@ -444,47 +450,173 @@ class _ProductCardState extends State<_ProductCard> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(children: [
-        Expanded(flex: 3, child: Text(name, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSlate), overflow: TextOverflow.ellipsis)),
-        Expanded(flex: 2, child: _numInput(entry.qty, (v) {
-          final bases = Map<String, _BaseEntry>.from(widget.bases);
-          bases[name] = entry.copyWith(qty: v);
-          widget.onBasesChanged(bases);
-        })),
-        Expanded(flex: 2, child: _numInput(entry.threshold, (v) {
-          final bases = Map<String, _BaseEntry>.from(widget.bases);
-          bases[name] = entry.copyWith(threshold: v);
-          widget.onBasesChanged(bases);
-        })),
+        Expanded(
+          flex: 3,
+          child: Text(
+            name,
+            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSlate),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          flex: 3,
+          child: _qtyInput(entry.qty, (v) {
+            final bases = Map<String, _BaseEntry>.from(widget.bases);
+            bases[name] = entry.copyWith(qty: v);
+            widget.onBasesChanged(bases);
+          }),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          flex: 2,
+          child: _numInput(entry.threshold, (v) {
+            final bases = Map<String, _BaseEntry>.from(widget.bases);
+            bases[name] = entry.copyWith(threshold: v);
+            widget.onBasesChanged(bases);
+          }),
+        ),
+        const SizedBox(width: 4),
         Expanded(flex: 2, child: Center(child: _pill(entry.status))),
-        SizedBox(width: 60, child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-          GestureDetector(onTap: () => _editBase(name), child: const Icon(Icons.edit_rounded, size: 16, color: AppColors.adminPrimary)),
-          const SizedBox(width: 8),
-          GestureDetector(onTap: () => _deleteBase(name), child: const Icon(Icons.close_rounded, size: 16, color: AppColors.error)),
-        ])),
+        SizedBox(
+          width: 52,
+          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            GestureDetector(onTap: () => _editBase(name), child: const Icon(Icons.edit_rounded, size: 16, color: AppColors.adminPrimary)),
+            const SizedBox(width: 8),
+            GestureDetector(onTap: () => _deleteBase(name), child: const Icon(Icons.close_rounded, size: 16, color: AppColors.error)),
+          ]),
+        ),
       ]),
+    );
+  }
+
+  Widget _qtyInput(int value, ValueChanged<int> onChanged) {
+    return Container(
+      height: 32,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F3FF),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.adminPrimary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          // Decrement button
+          InkWell(
+            borderRadius: const BorderRadius.horizontal(left: Radius.circular(7)),
+            onTap: () {
+              if (value > 0) onChanged(value - 1);
+            },
+            child: Container(
+              width: 24,
+              height: double.infinity,
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.remove_rounded,
+                size: 14,
+                color: value > 0 ? AppColors.adminPrimary : Colors.grey.shade400,
+              ),
+            ),
+          ),
+          // Value in middle (tap to enter number manually)
+          Expanded(
+            child: InkWell(
+              onTap: () => _showEnterValueDialog(value, 'Enter Quantity', onChanged),
+              child: Container(
+                height: double.infinity,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.symmetric(
+                    vertical: BorderSide(
+                      color: AppColors.adminPrimary.withValues(alpha: 0.15),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  '$value',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSlate,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Increment button
+          InkWell(
+            borderRadius: const BorderRadius.horizontal(right: Radius.circular(7)),
+            onTap: () => onChanged(value + 1),
+            child: Container(
+              width: 24,
+              height: double.infinity,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.add_rounded,
+                size: 14,
+                color: AppColors.adminPrimary,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _numInput(int value, ValueChanged<int> onChanged) {
     return GestureDetector(
-      onTap: () {
-        final ctrl = TextEditingController(text: '$value');
-        showDialog(context: context, builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('Enter Value', style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
-          content: TextField(controller: ctrl, keyboardType: TextInputType.number, autofocus: true, inputFormatters: [FilteringTextInputFormatter.digitsOnly], textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700), decoration: InputDecoration(filled: true, fillColor: Colors.grey.shade100, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () { onChanged(int.tryParse(ctrl.text) ?? 0); Navigator.pop(ctx); }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.adminPrimary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), child: const Text('Apply')),
-          ],
-        ));
-      },
+      onTap: () => _showEnterValueDialog(value, 'Enter Threshold', onChanged),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8), border: Border.all(color: AppColors.adminPrimary.withValues(alpha: 0.2))),
+        height: 32,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F3FF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.adminPrimary.withValues(alpha: 0.2)),
+        ),
         alignment: Alignment.center,
-        child: Text('$value', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textSlate)),
+        child: Text(
+          '$value',
+          style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSlate),
+        ),
+      ),
+    );
+  }
+
+  void _showEnterValueDialog(int value, String title, ValueChanged<int> onChanged) {
+    final ctrl = TextEditingController(text: '$value');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              onChanged(int.tryParse(ctrl.text) ?? 0);
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.adminPrimary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Apply'),
+          ),
+        ],
       ),
     );
   }

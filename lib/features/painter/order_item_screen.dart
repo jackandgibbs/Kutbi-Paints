@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 import '../../core/widgets/clay_card.dart';
@@ -95,10 +96,16 @@ class _OrderItemScreenState extends ConsumerState<OrderItemScreen> with TickerPr
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        padding: EdgeInsets.symmetric(
+          horizontal: Responsive.horizontalPadding(context),
+          vertical: 24,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // ─── Product Card ──────────────────────────────────────
             FadeTransition(
               opacity: _staggerAnimations[0],
@@ -223,8 +230,11 @@ class _OrderItemScreenState extends ConsumerState<OrderItemScreen> with TickerPr
                 ),
               ),
             ),
+            const SizedBox(height: 32),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

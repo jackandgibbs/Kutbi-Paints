@@ -959,7 +959,10 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
 
 
   Widget _orderCard(dynamic order) {
-    final statusColor = order.isRejected ? AppColors.error : _getStatusColor(order.status);
+    final ds = ref.read(dataServiceProvider);
+    final isReturned = order.isReturned || ds.hasApprovedReturnForOrder(order.id);
+    final effectiveStatus = isReturned ? 'returned' : (order.isRejected ? 'rejected' : order.displayStatus);
+    final statusColor = order.isRejected ? AppColors.error : _getStatusColor(effectiveStatus);
     return GestureDetector(
       onTap: () => context.push('/painter/order-detail/${order.id}'),
       child: Container(
@@ -1008,7 +1011,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                order.displayStatus.toUpperCase(),
+                effectiveStatus.toUpperCase(),
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -1040,6 +1043,8 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
         return const Color(0xFF7C3AED);
       case 'delivered':
         return AppColors.success;
+      case 'returned':
+        return const Color(0xFF7C3AED);
       default:
         return AppColors.textSecondary;
     }
@@ -1171,12 +1176,19 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   // Udhaari shortcut
                   Builder(
                     builder: (context) {
-                      final udhaariPending = orders.where((o) =>
-                        o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari' && !o.deletedByAdmin
-                      ).toList();
-                      final udhaariCompleted = orders.where((o) =>
-                        o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari_completed' && !o.deletedByAdmin
-                      ).toList();
+                      final udhaariPending = orders.where((o) {
+                        final isOrderReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+                        return o.paymentMethod == 'udhaari' &&
+                            o.paymentStatus == 'udhaari' &&
+                            !o.deletedByAdmin &&
+                            !isOrderReturned;
+                      }).toList();
+                      final udhaariCompleted = orders.where((o) {
+                        final isOrderReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+                        return o.paymentMethod == 'udhaari' &&
+                            (o.paymentStatus == 'udhaari_completed' || isOrderReturned) &&
+                            !o.deletedByAdmin;
+                      }).toList();
                       final totalUdhaari = udhaariPending.length + udhaariCompleted.length;
 
                       return GestureDetector(
@@ -1653,6 +1665,9 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   // Bank Details — Skeuomorphic clickable card
                   _skeuoBankDetailsTile(user),
 
+                  // My Returns — Skeuomorphic clickable card
+                  _skeuoReturnsTile(user),
+
                   // Support Admins
                   if (admins.isNotEmpty) ...[
                     const SizedBox(height: 24),
@@ -1990,8 +2005,138 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
     );
   }
 
+  /// Skeuomorphic My Returns tile — clickable card with active returns badge
+  Widget _skeuoReturnsTile(dynamic user) {
+    final ds = ref.watch(dataServiceProvider);
+    final userReturns = ds.getReturnRequestsByPainter(user.id);
+    final activeCount = userReturns.where((r) => !r.status.isTerminal).length;
 
-
+    return GestureDetector(
+      onTap: () => context.push('/painter/my-returns'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFF6F3EE),
+          border: Border.all(
+            color: const Color(0xFFE8E4DD),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.65),
+              blurRadius: 4,
+              spreadRadius: 0,
+              offset: const Offset(-1.5, -1.5),
+            ),
+          ],
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFAF8F5),
+              Color(0xFFF0ECE6),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            // Skeuomorphic inset icon well
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFEBE7E0),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.clayDarkShadow.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(2, 2),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    blurRadius: 4,
+                    offset: const Offset(-1.5, -1.5),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.assignment_return_rounded,
+                  color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('My Returns',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      )),
+                  const SizedBox(height: 2),
+                  Text(
+                    userReturns.isEmpty
+                        ? 'View return & refund status'
+                        : (activeCount > 0
+                            ? '$activeCount active request${activeCount > 1 ? "s" : ""}'
+                            : '${userReturns.length} past request${userReturns.length > 1 ? "s" : ""}'),
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: activeCount > 0
+                          ? AppColors.warning
+                          : AppColors.textSecondary,
+                      fontWeight: activeCount > 0 ? FontWeight.w500 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (activeCount > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.warning.withValues(alpha: 0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  '$activeCount Active',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.warning,
+                  ),
+                ),
+              ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showAdminContactOptions(UserModel admin) {
     final phone = admin.phone.replaceAll(RegExp(r'[^0-9]'), '');

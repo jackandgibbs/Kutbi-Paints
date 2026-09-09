@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../services/data_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/order_model.dart';
@@ -19,25 +20,38 @@ class PainterUdhaariScreen extends ConsumerWidget {
     if (user == null) return const SizedBox.shrink();
 
     final allOrders = ds.getOrdersByPainter(user.id);
-    final pendingUdhaari = allOrders.where((o) =>
-      o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari' && !o.deletedByAdmin
-    ).toList();
-    final completedUdhaari = allOrders.where((o) =>
-      o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari_completed' && !o.deletedByAdmin
-    ).toList();
+    final pendingUdhaari = allOrders.where((o) {
+      final isReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+      return o.paymentMethod == 'udhaari' &&
+          o.paymentStatus == 'udhaari' &&
+          !o.deletedByAdmin &&
+          !isReturned;
+    }).toList();
+    final completedUdhaari = allOrders.where((o) {
+      final isReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+      return o.paymentMethod == 'udhaari' &&
+          (o.paymentStatus == 'udhaari_completed' || isReturned) &&
+          !o.deletedByAdmin;
+    }).toList();
 
     final totalPendingAmount = pendingUdhaari.fold<double>(
-      0, (sum, o) => sum + o.totalAmount + (o.udhaariInterestAmount ?? 0),
+      0, (sum, o) => sum + o.totalAmount + o.udhaariInterestAmount,
     );
     final totalCompletedAmount = completedUdhaari.fold<double>(
-      0, (sum, o) => sum + o.totalAmount + (o.udhaariInterestAmount ?? 0),
+      0, (sum, o) {
+        final isReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+        return sum + (isReturned ? 0.0 : o.totalAmount + o.udhaariInterestAmount);
+      },
     );
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         backgroundColor: const Color(0xFFF0EDE8),
-        body: Column(
+        body: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+            child: Column(
           children: [
             // ── Floating Claymorphic Header ──
             Container(
@@ -205,8 +219,10 @@ class PainterUdhaariScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
+      ),
+    ),
+  );
+}
 
   Widget _summaryColumn(String label, String amount, int count, Color color) {
     return Column(
@@ -276,8 +292,9 @@ class _UdhaariCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isOrderReturned = order.isReturned;
     final isToBeRevealed = order.status == 'to_be_revealed' || order.status == 'udhaari_no_bill';
-    final totalDue = order.totalAmount + (order.udhaariInterestAmount ?? 0);
+    final totalDue = order.totalAmount + order.udhaariInterestAmount;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -321,7 +338,20 @@ class _UdhaariCard extends StatelessWidget {
                           color: const Color(0xFFFF9800),
                         ),
                       )
-                    else ...[
+                    else if (isOrderReturned) ...[
+                      Text(
+                        '₹0 Due',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: const Color(0xFF7C3AED),
+                        ),
+                      ),
+                      Text(
+                        'Returned (Waived)',
+                        style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF7C3AED), fontWeight: FontWeight.w500),
+                      ),
+                    ] else ...[
                       Text(
                         '₹${totalDue.toStringAsFixed(0)}',
                         style: GoogleFonts.poppins(
@@ -330,7 +360,7 @@ class _UdhaariCard extends StatelessWidget {
                           color: isPending ? Colors.red.shade600 : const Color(0xFF059669),
                         ),
                       ),
-                      if ((order.udhaariInterestAmount ?? 0) > 0)
+                      if (order.udhaariInterestAmount > 0)
                         Text(
                           'Incl. ₹${order.udhaariInterestAmount.toStringAsFixed(0)} interest',
                           style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey.shade600),
@@ -407,34 +437,44 @@ class _UdhaariCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                color: isToBeRevealed
-                    ? const Color(0xFFFF9800).withValues(alpha: 0.1)
-                    : isPending
-                        ? Colors.orange.shade50
-                        : const Color(0xFF059669).withValues(alpha: 0.1),
+                color: isOrderReturned
+                    ? const Color(0xFF7C3AED).withValues(alpha: 0.1)
+                    : isToBeRevealed
+                        ? const Color(0xFFFF9800).withValues(alpha: 0.1)
+                        : isPending
+                            ? Colors.orange.shade50
+                            : const Color(0xFF059669).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    isToBeRevealed
-                        ? Icons.schedule_rounded
-                        : isPending ? Icons.hourglass_top_rounded : Icons.check_circle_rounded,
+                    isOrderReturned
+                        ? Icons.assignment_return_rounded
+                        : isToBeRevealed
+                            ? Icons.schedule_rounded
+                            : isPending ? Icons.hourglass_top_rounded : Icons.check_circle_rounded,
                     size: 16,
-                    color: isToBeRevealed
-                        ? const Color(0xFFFF9800)
-                        : isPending ? Colors.orange.shade700 : const Color(0xFF059669),
+                    color: isOrderReturned
+                        ? const Color(0xFF7C3AED)
+                        : isToBeRevealed
+                            ? const Color(0xFFFF9800)
+                            : isPending ? Colors.orange.shade700 : const Color(0xFF059669),
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    isToBeRevealed ? 'To be revealed' : isPending ? 'Payment Pending' : 'Paid & Settled',
+                    isOrderReturned
+                        ? 'Returned — Waived (₹0 Due)'
+                        : isToBeRevealed ? 'To be revealed' : isPending ? 'Payment Pending' : 'Paid & Settled',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isToBeRevealed
-                          ? const Color(0xFFFF9800)
-                          : isPending ? Colors.orange.shade700 : const Color(0xFF059669),
+                      color: isOrderReturned
+                          ? const Color(0xFF7C3AED)
+                          : isToBeRevealed
+                              ? const Color(0xFFFF9800)
+                              : isPending ? Colors.orange.shade700 : const Color(0xFF059669),
                     ),
                   ),
                 ],

@@ -491,6 +491,22 @@ class _OrderManagementScreenState
 
   Widget _buildActions(dynamic order, Color brandColor) {
     final nextStatus = _getNextStatus(order.status);
+    if (order.status == 'returned') {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        width: double.infinity,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text('↩️ Returned',
+            style: GoogleFonts.poppins(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF7C3AED))),
+      );
+    }
     if (nextStatus == null) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -538,12 +554,14 @@ class _OrderManagementScreenState
   String? _getNextStatus(String current) {
     switch (current) {
       case 'placed':
+      case 'udhaari_pending_approval':
+      case 'pending_bill':
+      case 'bill_sent':
+      case 'billed':
         return 'accepted';
       case 'accepted':
-      case 'udhaari_pending_approval':
         return 'preparing';
       case 'preparing':
-
         return 'dispatched';
       case 'dispatched':
         return 'delivered';

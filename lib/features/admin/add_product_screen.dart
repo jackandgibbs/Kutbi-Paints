@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 import '../../models/product_model.dart';
 
@@ -322,9 +324,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         title: Text(_isEdit ? 'Edit Product' : 'Add Product',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
+      body: ResponsiveCenter(
+        maxWidth: 720,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -764,6 +768,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -6,6 +6,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 
 class PointsHistoryScreen extends ConsumerWidget {
@@ -38,7 +40,9 @@ class PointsHistoryScreen extends ConsumerWidget {
                 ],
               ),
             )
-          : ListView.builder(
+          : ResponsiveCenter(
+              maxWidth: Responsive.contentMaxWidth(context),
+              child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: history.length,
               itemBuilder: (ctx, i) {
@@ -114,6 +118,7 @@ class PointsHistoryScreen extends ConsumerWidget {
                 );
               },
             ),
+          ),
     );
   }
 

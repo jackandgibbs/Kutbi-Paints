@@ -7,6 +7,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 import '../../models/milestone_model.dart';
 
@@ -306,97 +308,102 @@ class _RewardDashboardTab extends ConsumerWidget {
             style: GoogleFonts.poppins(color: AppColors.textSecondary)),
       );
     }
+    return ResponsiveCenter(
+      maxWidth: Responsive.contentMaxWidth(context),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: painters.length,
+        itemBuilder: (ctx, i) {
+          final painter = painters[i];
+          final nextMilestone = ds.getNextMilestoneForPainter(painter.id);
+          
+          double progress = 0;
+          if (nextMilestone != null && nextMilestone.targetPoints > 0) {
+            progress = painter.points / nextMilestone.targetPoints;
+            if (progress > 1.0) progress = 1.0;
+          }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: painters.length,
-      itemBuilder: (ctx, i) {
-        final painter = painters[i];
-        final nextMilestone = ds.getNextMilestoneForPainter(painter.id);
-        
-        double progress = 0;
-        if (nextMilestone != null && nextMilestone.targetPoints > 0) {
-          progress = painter.points / nextMilestone.targetPoints;
-          if (progress > 1.0) progress = 1.0;
-        }
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              )
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(painter.name,
-                      style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600, fontSize: 16)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${painter.points} pts',
-                      style: GoogleFonts.poppins(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              if (nextMilestone != null) ...[
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Next: ${nextMilestone.rewardTitle}',
+                    Text(painter.name,
                         style: GoogleFonts.poppins(
-                            fontSize: 13, color: AppColors.textSecondary)),
-                    Text('${nextMilestone.targetPoints - painter.points} pts away',
+                            fontWeight: FontWeight.w600, fontSize: 16)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${painter.points} pts',
                         style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w500)),
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                const SizedBox(height: 12),
+                if (nextMilestone != null) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Next Reward: ${nextMilestone.rewardTitle}',
+                          style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary)),
+                      Text('${painter.points}/${nextMilestone.targetPoints}',
+                          style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary)),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text('${(progress * 100).toStringAsFixed(1)}% completed',
-                    style: GoogleFonts.poppins(
-                        fontSize: 12, color: AppColors.textLight)),
-              ] else ...[
-                Text('All milestones achieved or none set!',
-                    style: GoogleFonts.poppins(
-                        fontSize: 13, color: AppColors.success)),
-              ]
-            ],
-          ),
-        );
-      },
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 8,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${(progress * 100).toStringAsFixed(1)}% completed',
+                      style: GoogleFonts.poppins(
+                          fontSize: 12, color: AppColors.textLight)),
+                ] else ...[
+                  Text('All milestones achieved or none set!',
+                      style: GoogleFonts.poppins(
+                          fontSize: 13, color: AppColors.success)),
+                ]
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -422,85 +429,88 @@ class _RewardConfigTabState extends ConsumerState<_RewardConfigTab> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            left: 20, right: 20, top: 20,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setStateModal) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Add Reward Milestone',
-                      style: GoogleFonts.poppins(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: pointsCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Target Points',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Reward Title (e.g., 50% Discount)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: selectedType,
-                    decoration: InputDecoration(
-                      labelText: 'Reward Type',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'gift', child: Text('Gift')),
-                      DropdownMenuItem(value: 'discount', child: Text('Discount')),
-                      DropdownMenuItem(value: 'cashback', child: Text('Cashback')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setStateModal(() => selectedType = val);
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+                left: 20, right: 20, top: 20,
+              ),
+              child: StatefulBuilder(
+                builder: (context, setStateModal) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Add Reward Milestone',
+                          style: GoogleFonts.poppins(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: pointsCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Target Points',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
-                      onPressed: () {
-                        if (pointsCtrl.text.isEmpty || titleCtrl.text.isEmpty) return;
-                        final milestone = MilestoneModel(
-                          id: const Uuid().v4(),
-                          targetPoints: int.tryParse(pointsCtrl.text) ?? 0,
-                          rewardTitle: titleCtrl.text,
-                          rewardType: selectedType,
-                          createdAt: DateTime.now(),
-                        );
-                        ds.addMilestone(milestone);
-                        Navigator.pop(ctx);
-                      },
-                      child: Text('Save Milestone',
-                          style: GoogleFonts.poppins(
-                              color: Colors.white, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              );
-            }
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: titleCtrl,
+                        decoration: InputDecoration(
+                          labelText: 'Reward Title (e.g., 50% Discount)',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedType,
+                        decoration: InputDecoration(
+                          labelText: 'Reward Type',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'gift', child: Text('Gift / Reward')),
+                          DropdownMenuItem(value: 'discount', child: Text('Discount Coupon')),
+                          DropdownMenuItem(value: 'cashback', child: Text('Cashback / Wallet')),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setStateModal(() => selectedType = val);
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () {
+                            if (pointsCtrl.text.isEmpty || titleCtrl.text.isEmpty) return;
+                            final milestone = MilestoneModel(
+                              id: const Uuid().v4(),
+                              targetPoints: int.tryParse(pointsCtrl.text) ?? 0,
+                              rewardTitle: titleCtrl.text,
+                              rewardType: selectedType,
+                              createdAt: DateTime.now(),
+                            );
+                            ds.addMilestone(milestone);
+                            Navigator.pop(ctx);
+                          },
+                          child: Text('Save Milestone',
+                              style: GoogleFonts.poppins(
+                                  color: Colors.white, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                }
+              ),
+            ),
           ),
         );
       },
@@ -520,54 +530,57 @@ class _RewardConfigTabState extends ConsumerState<_RewardConfigTab> {
                 style: GoogleFonts.poppins(color: AppColors.textSecondary)),
           )
         else
-          ListView.builder(
-            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 80),
-            itemCount: milestones.length,
-            itemBuilder: (ctx, i) {
-              final m = milestones[i];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+          ResponsiveCenter(
+            maxWidth: Responsive.contentMaxWidth(context),
+            child: ListView.builder(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 80),
+              itemCount: milestones.length,
+              itemBuilder: (ctx, i) {
+                final m = milestones[i];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.star_rounded, color: AppColors.primary),
                       ),
-                      child: const Icon(Icons.star_rounded, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('${m.targetPoints} Points',
-                              style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w700, fontSize: 16)),
-                          Text(m.rewardTitle,
-                              style: GoogleFonts.poppins(
-                                  color: AppColors.textSecondary, fontSize: 13)),
-                        ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${m.targetPoints} Points',
+                                style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(m.rewardTitle,
+                                style: GoogleFonts.poppins(
+                                    color: AppColors.textSecondary, fontSize: 13)),
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                      onPressed: () {
-                        ds.deleteMilestone(m.id);
-                      },
-                    )
-                  ],
-                ),
-              );
-            },
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                        onPressed: () {
+                          ds.deleteMilestone(m.id);
+                        },
+                      )
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         Positioned(
           bottom: 24,

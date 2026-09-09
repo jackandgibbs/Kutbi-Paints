@@ -739,7 +739,30 @@ void _confirmBulkDelete() {
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text('Generate Bill', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text('Generate Bill', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    'ESTIMATE',
+                    style: GoogleFonts.poppins(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: const Color(0xFF7C3AED),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             content: SizedBox(
               width: 500,
               child: Column(

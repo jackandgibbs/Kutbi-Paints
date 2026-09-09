@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../services/data_service.dart';
 import '../../models/order_model.dart';
 import '../shared/widgets/product_image.dart';
@@ -26,6 +27,8 @@ class OrderDetailScreen extends ConsumerWidget {
     }
 
     final brandColor = AppColors.getBrandPrimary(order.brand);
+    final isReturned = order.isReturned || ds.hasApprovedReturnForOrder(order.id);
+    final effectiveStatus = isReturned ? 'returned' : order.displayStatus;
     final isBilled = order.status == 'billed' || order.status == 'bill_sent' || order.status == 'accepted';
     final isPaid = order.paymentStatus == 'udhaari';
     final isUdhaariRequested = order.status == 'udhaari_requested';
@@ -55,10 +58,16 @@ class OrderDetailScreen extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        padding: EdgeInsets.symmetric(
+          horizontal: Responsive.horizontalPadding(context),
+          vertical: 20,
+        ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             // Header Card
             Container(
               width: double.infinity,
@@ -92,7 +101,7 @@ class OrderDetailScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          order.displayStatus.toUpperCase(),
+                          effectiveStatus.toUpperCase(),
                           style: GoogleFonts.poppins(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -107,7 +116,9 @@ class OrderDetailScreen extends ConsumerWidget {
                     order.isToBeRevealed 
                         ? 'To be revealed'
                         : (order.totalAmount > 0 || isPaid) 
-                            ? '₹${order.totalAmount.toStringAsFixed(0)}'
+                            ? (isReturned && order.paymentMethod == 'udhaari'
+                                ? '₹0 (Returned)'
+                                : '₹${order.totalAmount.toStringAsFixed(0)}')
                             : (isUdhaariRequested ? 'Under Review' : 'Waiting for Bill'),
                     style: GoogleFonts.poppins(
                       fontSize: order.isToBeRevealed ? 22 : 32,
@@ -256,6 +267,35 @@ class OrderDetailScreen extends ConsumerWidget {
                            Text('Remaining Balance', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
                            Text('₹${order.remainingAmount.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
                          ],
+                       ),
+                     ],
+                     if (isReturned) ...[
+                       const Divider(height: 24),
+                       Container(
+                         padding: const EdgeInsets.all(12),
+                         decoration: BoxDecoration(
+                           color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                           borderRadius: BorderRadius.circular(8),
+                           border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
+                         ),
+                         child: Row(
+                           children: [
+                             const Icon(Icons.assignment_return_rounded, color: Color(0xFF7C3AED), size: 20),
+                             const SizedBox(width: 8),
+                             Expanded(
+                               child: Text(
+                                 order.paymentMethod == 'udhaari'
+                                     ? 'Order Returned — Udhaari Waived (No payment needed)'
+                                     : 'Order Returned — Return Approved',
+                                 style: GoogleFonts.poppins(
+                                   fontSize: 12,
+                                   fontWeight: FontWeight.w600,
+                                   color: const Color(0xFF7C3AED),
+                                 ),
+                               ),
+                             ),
+                           ],
+                         ),
                        ),
                      ],
                   ],
@@ -453,13 +493,70 @@ class OrderDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+
+            // ─── Return Order Button (delivered or returned orders) ───────
+            if (order.status == 'delivered' || isReturned) ...[     
+              const SizedBox(height: 8),
+              _ReturnOrderSection(order: order, ds: ds),
+            ],
           ],
         ),
       ),
-    );
-  }
+      ),
+    ),
+  );
+}
 
-  Widget _buildTimeline(OrderModel order, Color brandColor) {
+  Widget _buildTimeline(OrderModel order, Color brandColor, {bool isReturned = false}) {
+    if (isReturned) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                color: Color(0xFF7C3AED),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.assignment_return_rounded, size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Order Returned',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF7C3AED),
+                    ),
+                  ),
+                  Text(
+                    order.paymentMethod == 'udhaari'
+                        ? 'Return approved by admin • Udhaari waived (₹0 Due)'
+                        : 'Return request approved by admin',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // If order is deleted, show cancelled status
     if (order.deletedByAdmin) {
       return Container(
@@ -706,3 +803,152 @@ class OrderDetailScreen extends ConsumerWidget {
     );
   }
 }
+
+// ─── Return Order Section ────────────────────────────────────────────────────
+
+class _ReturnOrderSection extends ConsumerWidget {
+  final OrderModel order;
+  final DataService ds;
+
+  const _ReturnOrderSection({required this.order, required this.ds});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isEligible = ds.isOrderReturnEligible(order);
+    final daysLeft = ds.returnWindowDaysRemaining(order);
+    final existingReturns = ds.getReturnRequestsForOrder(order.id);
+    final activeReturn = existingReturns.isEmpty
+        ? null
+        : existingReturns.first; // most recent
+
+    // Show existing active return status instead of button
+    if (activeReturn != null && !activeReturn.status.isTerminal) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: GestureDetector(
+          onTap: () =>
+              context.push('/painter/return-tracking/${activeReturn.id}'),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.info.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.assignment_return_rounded,
+                    color: AppColors.info, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Return ${activeReturn.status.label}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.info,
+                        ),
+                      ),
+                      Text(
+                        activeReturn.displayId,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppColors.info, size: 18),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!isEligible && daysLeft < 0) {
+      // Window expired
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.timer_off_outlined,
+                  size: 16, color: Colors.grey.shade500),
+              const SizedBox(width: 8),
+              Text(
+                'Return window expired (7 days)',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!isEligible) return const SizedBox.shrink();
+
+    // Eligible — show button
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (daysLeft <= 3 && daysLeft >= 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  const Icon(Icons.timer_outlined,
+                      size: 14, color: AppColors.warning),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Return window closes in $daysLeft day(s)',
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () =>
+                  context.push('/painter/return-request/${order.id}'),
+              icon: const Icon(Icons.assignment_return_rounded),
+              label: Text(
+                'Return Order',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

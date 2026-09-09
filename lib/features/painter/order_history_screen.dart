@@ -109,8 +109,10 @@ class OrderHistoryScreen extends ConsumerWidget {
               itemCount: orders.length,
               itemBuilder: (ctx, i) {
                 final order = orders[i];
+                final isReturned = order.isReturned || ds.hasApprovedReturnForOrder(order.id);
+                final effectiveStatus = isReturned ? 'returned' : (order.isRejected ? 'rejected' : order.displayStatus);
                 final brandColor = AppColors.getBrandPrimary(order.brand);
-                final statusColor = _getStatusColor(order.status);
+                final statusColor = _getStatusColor(effectiveStatus);
                 final dateStr = DateFormat('dd MMM yyyy, hh:mm a')
                     .format(order.createdAt);
   
@@ -172,7 +174,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                order.displayStatus.toUpperCase(),
+                                effectiveStatus.toUpperCase(),
                                 style: GoogleFonts.poppins(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
@@ -256,7 +258,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        if (order.status == 'delivered' && !isDeleted) ...[
+                        if (order.status == 'delivered' && !isDeleted && !isReturned) ...[
                           const SizedBox(height: 10),
                           SizedBox(
                             width: double.infinity,
@@ -277,6 +279,35 @@ class OrderHistoryScreen extends ConsumerWidget {
                                       BorderRadius.circular(10),
                                 ),
                               ),
+                            ),
+                          ),
+                        ],
+                        if (isReturned && !isDeleted) ...[
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.assignment_return_rounded, color: Color(0xFF7C3AED), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    order.paymentMethod == 'udhaari'
+                                        ? 'Return Approved • Udhaari Waived (₹0 Due)'
+                                        : 'Return Approved • Order Returned',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: const Color(0xFF7C3AED),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -333,6 +364,8 @@ class OrderHistoryScreen extends ConsumerWidget {
         return const Color(0xFF7C3AED);
       case 'delivered':
         return AppColors.success;
+      case 'returned':
+        return const Color(0xFF7C3AED);
       case 'cancelled':
       case 'deleted':
         return AppColors.error;

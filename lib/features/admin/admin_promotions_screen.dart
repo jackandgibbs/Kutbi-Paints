@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../models/promotion_model.dart';
 import '../../services/data_service.dart';
 import '../../core/widgets/lottie_loading_widget.dart';
@@ -53,14 +55,17 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setStateSB) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 20,
-              right: 20,
-              top: 20,
-            ),
-            child: SingleChildScrollView(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                  left: 20,
+                  right: 20,
+                  top: 20,
+                ),
+                child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,6 +219,8 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
                 ],
               ),
             ),
+          ),
+          ),
           );
         },
       ),
@@ -247,125 +254,107 @@ class _AdminPromotionsScreenState extends ConsumerState<AdminPromotionsScreen> {
       ),
       body: promos.isEmpty
           ? const Center(child: Text('No active offers'))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: promos.length,
-              itemBuilder: (context, index) {
-                final basePromo = promos.toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));
-                final promo = basePromo[index];
-                final isUpcoming = promo.isUpcoming;
-                final isExpired = promo.isExpired;
+          : ResponsiveCenter(
+              maxWidth: Responsive.contentMaxWidth(context),
+              child: ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: promos.length,
+                itemBuilder: (context, index) {
+                  final basePromo = promos.toList()..sort((a,b)=>b.createdAt.compareTo(a.createdAt));
+                  final promo = basePromo[index];
+                  final isUpcoming = promo.isUpcoming;
+                  final isExpired = promo.isExpired;
 
-                String statusText = 'Active';
-                Color statusColor = Colors.green.shade800;
-                Color statusBgColor = Colors.green.shade100;
-                
-                if (!promo.isActive) {
-                  statusText = 'Inactive';
-                  statusColor = Colors.grey.shade800;
-                  statusBgColor = Colors.grey.shade300;
-                } else if (isExpired) {
-                  statusText = 'Expired';
-                  statusColor = Colors.red.shade800;
-                  statusBgColor = Colors.red.shade100;
-                } else if (isUpcoming) {
-                  statusText = 'Upcoming';
-                  statusColor = Colors.blue.shade800;
-                  statusBgColor = Colors.blue.shade100;
-                }
+                  String statusText = 'Active';
+                  Color statusColor = Colors.green.shade800;
+                  Color statusBg = Colors.green.shade50;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0EDE8),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        blurRadius: 14,
-                        offset: const Offset(-6, -6),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFFD1CCC4).withValues(alpha: 0.65),
-                        blurRadius: 14,
-                        offset: const Offset(6, 6),
-                      ),
-                    ],
-                  ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    title: Text(
-                      promo.title.isNotEmpty ? '${promo.title[0].toUpperCase()}${promo.title.substring(1)}' : promo.title,
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                  if (isExpired) {
+                    statusText = 'Expired';
+                    statusColor = Colors.red.shade800;
+                    statusBg = Colors.red.shade50;
+                  } else if (isUpcoming) {
+                    statusText = 'Upcoming';
+                    statusColor = Colors.blue.shade800;
+                    statusBg = Colors.blue.shade50;
+                  } else if (!promo.isActive) {
+                    statusText = 'Disabled';
+                    statusColor = Colors.grey.shade800;
+                    statusBg = Colors.grey.shade100;
+                  }
+
+                  return Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.shade300),
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: statusBgColor,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                statusText,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  color: statusColor,
-                                ),
-                              ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              promo.title,
+                              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                promo.brand,
-                                style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${promo.discountPercent > 0 ? '${(promo.discountPercent*100).toStringAsFixed(0)}% OFF' : ''}'.trim(),
-                          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.adminPrimary),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Valid: ${DateFormat('MMM d').format(promo.startDate)} - ${DateFormat('MMM d').format(promo.endDate)}',
-                          style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textLight),
-                        ),
-                      ],
+                            child: Text(
+                              statusText,
+                              style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          Text(
+                            'Brand: ${promo.brand} • Discount: ${(promo.discountPercent * 100).toInt()}% Off',
+                            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${DateFormat('dd MMM').format(promo.startDate)} - ${DateFormat('dd MMM yyyy').format(promo.endDate)}',
+                            style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textLight),
+                          ),
+                        ],
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Switch(
+                            value: promo.isActive,
+                            onChanged: (val) {
+                              ref.read(dataServiceProvider).updatePromotion(promo.copyWith(isActive: val));
+                            },
+                            activeColor: AppColors.adminPrimary,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                            onPressed: () => _showAddOfferSheet(existingOffer: promo),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                            onPressed: () {
+                              ref.read(dataServiceProvider).deletePromotion(promo.id);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Switch(
-                          value: promo.isActive,
-                          onChanged: (val) {
-                            ref.read(dataServiceProvider).updatePromotion(promo.copyWith(isActive: val));
-                          },
-                          activeColor: AppColors.adminPrimary,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                          onPressed: () => _showAddOfferSheet(existingOffer: promo),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                          onPressed: () {
-                            ref.read(dataServiceProvider).deletePromotion(promo.id);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
     );
   }

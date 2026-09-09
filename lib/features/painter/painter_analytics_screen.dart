@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../services/report_service.dart';
@@ -53,7 +54,10 @@ class PainterAnalyticsScreen extends ConsumerWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: !ds.isLoaded
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+          child: !ds.isLoaded
           ? const SingleChildScrollView(
               padding: EdgeInsets.all(20),
               child: Column(
@@ -413,6 +417,8 @@ class PainterAnalyticsScreen extends ConsumerWidget {
                 ),
               ),
             ),
+        ),
+      ),
     );
   }
 

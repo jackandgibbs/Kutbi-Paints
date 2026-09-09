@@ -48,9 +48,12 @@ class _AdminSecretLoginScreenState extends State<AdminSecretLoginScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
           children: [
             const SizedBox(height: 40),
             const Icon(Icons.security_rounded, size: 60, color: AppColors.primary),
@@ -113,6 +116,8 @@ class _AdminSecretLoginScreenState extends State<AdminSecretLoginScreen> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

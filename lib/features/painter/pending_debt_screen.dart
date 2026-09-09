@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../services/data_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/order_model.dart';
@@ -19,9 +20,13 @@ class PendingDebtScreen extends ConsumerWidget {
     
     if (user == null) return const Center(child: CircularProgressIndicator());
 
-    // Filter for orders that were paid via Udhaari
+    // Filter for orders that were paid via Udhaari (excluding cancelled or returned)
     final pendingOrders = ds.getOrdersByPainter(user.id)
-        .where((o) => o.paymentMethod == 'udhaari' && o.status != 'cancelled')
+        .where((o) =>
+            o.paymentMethod == 'udhaari' &&
+            o.status != 'cancelled' &&
+            !o.isReturned &&
+            !ds.hasApprovedReturnForOrder(o.id))
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -43,7 +48,10 @@ class PendingDebtScreen extends ConsumerWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+          child: Column(
         children: [
           // Summary Header
           Container(
@@ -99,7 +107,9 @@ class PendingDebtScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildEmptyState() {

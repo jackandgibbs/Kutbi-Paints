@@ -61,6 +61,11 @@ import '../features/admin/brand_detail_screen.dart';
 import '../features/admin/admin_commissions_screen.dart';
 import '../features/admin/admin_reset_points_screen.dart';
 import '../features/admin/admin_bank_details_screen.dart';
+import '../features/painter/return_request_screen.dart';
+import '../features/painter/my_returns_screen.dart';
+import '../features/painter/return_tracking_screen.dart';
+import '../features/admin/admin_returns_screen.dart';
+import '../features/admin/return_detail_admin_screen.dart';
 
 
 /// Bridges Riverpod auth-state changes into a [Listenable] so GoRouter can
@@ -427,6 +432,35 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // ─── Return Routes (Painter) ──────────────────────
+      GoRoute(
+        path: '/painter/return-request/:orderId',
+        pageBuilder: (context, state) {
+          final orderId = state.pathParameters['orderId']!;
+          return fadeTransitionPage(
+            state: state,
+            child: ReturnRequestScreen(orderId: orderId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/painter/my-returns',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          state: state,
+          child: const MyReturnsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/painter/return-tracking/:returnId',
+        pageBuilder: (context, state) {
+          final returnId = state.pathParameters['returnId']!;
+          return fadeTransitionPage(
+            state: state,
+            child: ReturnTrackingScreen(returnId: returnId),
+          );
+        },
+      ),
+
       // ─── Admin Routes ────────────────────────────────
       GoRoute(
         path: '/admin',
@@ -434,6 +468,24 @@ final routerProvider = Provider<GoRouter>((ref) {
           state: state,
           child: const AdminMainScreen(),
         ),
+      ),
+      // ─── Return Routes (Admin) ────────────────────────
+      GoRoute(
+        path: '/admin/returns',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          state: state,
+          child: const AdminReturnsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/return-detail/:returnId',
+        pageBuilder: (context, state) {
+          final returnId = state.pathParameters['returnId']!;
+          return fadeTransitionPage(
+            state: state,
+            child: ReturnDetailAdminScreen(returnId: returnId),
+          );
+        },
       ),
       GoRoute(
         path: '/admin/users',

@@ -289,15 +289,20 @@ class OrderModel {
 
   bool get canBeCancelled => status == 'pending_bill' || status == 'udhaari_requested' || status == 'udhaari_pending_approval' || status == 'to_be_revealed';
 
+  /// Whether the order is returned or return was approved
+  bool get isReturned => status == 'returned' || paymentStatus == 'returned';
+
   /// Whether the order was rejected by admin (cancelled or deleted).
   bool get isRejected =>
       deletedByAdmin || status == 'cancelled' || status == 'deleted';
 
-  /// Status text shown to painters; rejected orders read as 'rejected'.
-  String get displayStatus => isRejected ? 'rejected' : status;
+  /// Status text shown to painters; rejected orders read as 'rejected', returned read as 'returned'.
+  String get displayStatus => isRejected ? 'rejected' : (isReturned ? 'returned' : status);
 
-  /// Remaining amount dynamically calculated based on paid amount and udhaari interest
+  /// Remaining amount dynamically calculated based on paid amount and udhaari interest.
+  /// Returned orders have 0 remaining balance.
   double get remainingAmount {
+    if (isReturned) return 0.0;
     return (totalAmount + udhaariInterestAmount) - paidAmount;
   }
 }

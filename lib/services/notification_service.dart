@@ -181,6 +181,59 @@ class NotificationService {
     );
   }
 
+  /// Show notification for return request lifecycle events.
+  static Future<void> showReturnUpdate({
+    required String returnId,
+    required dynamic status, // ReturnStatus enum
+  }) async {
+    final String title;
+    final String body;
+    switch (status.value as String) {
+      case 'requested':
+        title = '📦 Return Requested';
+        body = '$returnId has been submitted and is under review.';
+        break;
+      case 'approved':
+        title = '✅ Return Approved';
+        body = '$returnId has been approved. Pickup will be scheduled.';
+        break;
+      case 'pickup_scheduled':
+        title = '🚚 Pickup Scheduled';
+        body = '$returnId: pickup has been scheduled.';
+        break;
+      case 'picked_up':
+        title = '📬 Product Picked Up';
+        body = '$returnId: your product has been collected.';
+        break;
+      case 'received':
+        title = '🏭 Product Received';
+        body = '$returnId: product received at warehouse.';
+        break;
+      case 'refund_processing':
+        title = '💳 Refund Processing';
+        body = '$returnId: your refund is being processed.';
+        break;
+      case 'refunded':
+        title = '🎉 Refund Completed';
+        body = '$returnId: your refund has been completed.';
+        break;
+      case 'rejected':
+        title = '❌ Return Rejected';
+        body = '$returnId has been rejected. Tap to see details.';
+        break;
+      default:
+        title = '🔄 Return Updated';
+        body = '$returnId status has been updated.';
+    }
+    await _show(
+      id: returnId.hashCode + 5000,
+      title: title,
+      body: body,
+      channel: 'returns',
+      channelName: 'Return Updates',
+    );
+  }
+
   static Future<void> _show({
     required int id,
     required String title,

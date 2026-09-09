@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 import '../../models/order_model.dart';
 import '../shared/widgets/product_image.dart';
@@ -69,9 +71,11 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      body: ResponsiveCenter(
+        maxWidth: Responsive.contentMaxWidth(context),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Order Summary Card
@@ -397,6 +401,7 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -411,11 +416,35 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
       case 'preparing': return Colors.blue;
       case 'dispatched': return Colors.purple;
       case 'delivered': return Colors.green;
+      case 'returned': return const Color(0xFF7C3AED);
       default: return Colors.grey;
     }
   }
 
   Widget _buildAdminTimeline(BuildContext context, OrderModel order, Color brandColor, WidgetRef ref, DataService ds) {
+    if (order.status == 'returned' || ds.hasApprovedReturnForOrder(order.id)) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFF7C3AED).withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.assignment_return_rounded, color: Color(0xFF7C3AED)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Order Returned — Return request approved',
+                style: GoogleFonts.poppins(color: const Color(0xFF7C3AED), fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Simplified status flow
     final statusList = ['placed', 'accepted', 'preparing', 'dispatched', 'delivered'];
     
@@ -452,7 +481,9 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
 
         bool canAdvance = isNext;
         if (status == 'pending_bill') canAdvance = false; // Handled by bill upload
-        if (status == 'accepted') canAdvance = false; // Handled by bill upload
+        if (status == 'accepted' && order.status == 'pending_bill' && (order.billImageUrl == null || order.billImageUrl!.isEmpty)) {
+          canAdvance = false; // Waiting for bill upload
+        }
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,

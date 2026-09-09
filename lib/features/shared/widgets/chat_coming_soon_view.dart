@@ -12,9 +12,11 @@ class ChatComingSoonView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Icon / Illustration
@@ -80,6 +82,7 @@ class ChatComingSoonView extends ConsumerWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -91,13 +94,16 @@ class ChatComingSoonView extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Column(
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
@@ -180,8 +186,10 @@ class ChatComingSoonView extends ConsumerWidget {
               const SizedBox(height: 24),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      ),
+      );
+    },
+  );
+}
 }

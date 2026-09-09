@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/widgets/clay_card.dart';
 import '../../core/widgets/skeuomorphic_background.dart';
 import '../../providers/auth_provider.dart';
@@ -56,64 +57,69 @@ class _PainterRewardsHistoryScreenState
           child: RefreshIndicator(
             color: AppColors.primary,
             onRefresh: () => ds.refresh(),
-            child: CustomScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                _buildAppBar(context),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: _SummaryCard(
-                      months: history.length,
-                      totalPoints: totalArchivedPoints,
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.history_rounded,
-                            size: 18, color: AppColors.textPrimary),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Past Months',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    _buildAppBar(context),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: _SummaryCard(
+                          months: history.length,
+                          totalPoints: totalArchivedPoints,
                         ),
-                        const Spacer(),
-                        Text(
-                          '${history.length}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
+                      ),
+                    ),
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history_rounded,
+                                size: 18, color: AppColors.textPrimary),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Past Months',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${history.length}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    if (history.isEmpty)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyHistoryView(),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                        sliver: SliverList.separated(
+                          itemCount: history.length,
+                          separatorBuilder: (_, idx) => const SizedBox(height: 10),
+                          itemBuilder: (ctx, i) =>
+                              _HistoryTile(record: history[i]),
+                        ),
+                      ),
+                  ],
                 ),
-                if (history.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyHistoryView(),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                    sliver: SliverList.separated(
-                      itemCount: history.length,
-                      separatorBuilder: (_, idx) => const SizedBox(height: 10),
-                      itemBuilder: (ctx, i) =>
-                          _HistoryTile(record: history[i]),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),

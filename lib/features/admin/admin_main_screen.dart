@@ -19,6 +19,7 @@ import 'admin_inventory_tab.dart';
 import 'admin_goals_tab.dart';
 import 'admin_support_tab.dart';
 import 'admin_settings_screen.dart';
+import 'admin_returns_screen.dart';
 
 class AdminMainScreen extends ConsumerStatefulWidget {
   const AdminMainScreen({super.key});
@@ -44,6 +45,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
     Color(0xFFF97316), // Bills – orange
     Color(0xFF10B981), // Goals – emerald
     Color(0xFF8B5CF6), // Support – violet
+    Color(0xFFEF4444), // Returns – red/coral
     Color(0xFF64748B), // Settings – slate
     Color(0xFFEF4444), // Logout – red
   ];
@@ -54,6 +56,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
     Icons.shopping_bag_rounded,
     Icons.flag_rounded,
     Icons.support_agent_rounded,
+    Icons.assignment_return_rounded, // Returns
     Icons.settings_suggest_rounded,
     Icons.logout_rounded,
   ];
@@ -64,6 +67,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
     'Bills',
     'Goals',
     'Support',
+    'Returns',
     'Settings',
     'Logout',
   ];
@@ -78,6 +82,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
       AdminBillsTab(),
       AdminGoalsTab(),
       AdminSupportTab(),
+      AdminReturnsScreen(),
       AdminSettingsScreen(),
     ];
     _navGlowController = AnimationController(
@@ -101,7 +106,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
 
   void _onTabTapped(int index) {
     // Logout – show dialog instead of switching tab
-    if (index == 6) {
+    if (index == 7) {
       _showLogoutDialog();
       return;
     }
@@ -301,10 +306,17 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
         badgeCount: _getBadgeCount(4),
       ),
       DesktopNavItem(
+        icon: Icons.assignment_return_outlined,
+        activeIcon: Icons.assignment_return_rounded,
+        label: 'Returns',
+        glowColor: _tabGlowColors[5],
+        badgeCount: _getBadgeCount(5),
+      ),
+      DesktopNavItem(
         icon: Icons.settings_outlined,
         activeIcon: Icons.settings_rounded,
         label: 'Settings',
-        glowColor: _tabGlowColors[5],
+        glowColor: _tabGlowColors[6],
       ),
     ];
   }
@@ -573,6 +585,8 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen>
         return ds.getPaintersByStatus('inactive').length;
       case 4: // Support – track unread customer messages
         return ds.getUnreadSupportCount();
+      case 5: // Returns – requested returns
+        return ds.getReturnStatusCounts()['requested'] ?? 0;
       default:
         return 0;
     }

@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order_model.dart';
+import '../models/return_model.dart';
 
 class BillExportService {
   static const _invoiceKey = 'kutbi_invoice_number';
@@ -46,6 +47,26 @@ class BillExportService {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
+              // Top Title: ESTIMATE
+              pw.Center(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
+                  margin: const pw.EdgeInsets.only(bottom: 12),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey800, width: 1.5),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text(
+                    'ESTIMATE',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: 16,
+                      letterSpacing: 4,
+                    ),
+                  ),
+                ),
+              ),
+
               // Header with Invoice Number and Date
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -236,5 +257,197 @@ class BillExportService {
   static String _getNumberInWords(int amount) {
     if (amount == 0) return 'Zero Rupees Only';
     return '${amount.toString()} Rupees Only'; 
+  }
+
+  static Future<Uint8List> generateReturnBill({
+    required ReturnRequestModel returnRequest,
+    required OrderModel? order,
+    required String painterName,
+    required String painterPhone,
+    required List<Map<String, dynamic>> items,
+    double? customRefundTotal,
+  }) async {
+    final pdf = pw.Document();
+    final font = await PdfGoogleFonts.poppinsRegular();
+    final boldFont = await PdfGoogleFonts.poppinsBold();
+
+    final totalRefund = customRefundTotal ?? returnRequest.refundAmount;
+    final billDate = DateFormat('dd MMM yyyy').format(DateTime.now());
+    final retId = returnRequest.displayId;
+    final orderId = order != null ? '#${order.id.substring(0, order.id.length >= 8 ? 8 : order.id.length)}' : '';
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header: RETURN BILL / CREDIT NOTE
+              pw.Center(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
+                  margin: const pw.EdgeInsets.only(bottom: 12),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.red800, width: 1.5),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text(
+                    'RETURN BILL / CREDIT NOTE',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: 15,
+                      color: PdfColors.red800,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ),
+
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Date: $billDate', style: pw.TextStyle(font: boldFont, fontSize: 12)),
+                  pw.Text('Return ID: $retId', style: pw.TextStyle(font: boldFont, fontSize: 12)),
+                ],
+              ),
+              if (orderId.isNotEmpty) ...[
+                pw.SizedBox(height: 4),
+                pw.Text('Original Order: $orderId', style: pw.TextStyle(font: font, fontSize: 11, color: PdfColors.grey700)),
+              ],
+
+              pw.SizedBox(height: 18),
+
+              // Return From Section
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    width: 120,
+                    padding: const pw.EdgeInsets.all(4),
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                    child: pw.Text('RETURN FROM', style: pw.TextStyle(font: boldFont, fontSize: 10)),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(painterName, style: pw.TextStyle(font: boldFont, fontSize: 13)),
+                  pw.Text('Mobile : $painterPhone', style: pw.TextStyle(font: font, fontSize: 11)),
+                  if (returnRequest.reason.isNotEmpty) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Text('Reason: ${returnRequest.reason}', style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700)),
+                  ],
+                ],
+              ),
+
+              pw.SizedBox(height: 18),
+
+              // Items Table
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey300),
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(40),
+                  1: const pw.FlexColumnWidth(),
+                  2: const pw.FixedColumnWidth(60),
+                  3: const pw.FixedColumnWidth(50),
+                  4: const pw.FixedColumnWidth(70),
+                  5: const pw.FixedColumnWidth(80),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey100),
+                    children: [
+                      _tableHeaderCell('S.NO.', boldFont),
+                      _tableHeaderCell('RETURNED ITEM', boldFont),
+                      _tableHeaderCell('SIZE', boldFont),
+                      _tableHeaderCell('QTY.', boldFont),
+                      _tableHeaderCell('RATE', boldFont),
+                      _tableHeaderCell('REFUND', boldFont),
+                    ],
+                  ),
+                  ...items.asMap().entries.map((entry) {
+                    final index = entry.key + 1;
+                    final item = entry.value;
+                    final qty = (item['quantity'] as num?)?.toInt() ?? 1;
+                    final rate = (item['rate'] as num?)?.toDouble() ?? 0.0;
+                    final amount = (item['amount'] as num?)?.toDouble() ?? (qty * rate);
+                    final productName = (item['product_name'] ??
+                            item['name'] ??
+                            item['productName'] ??
+                            item['item_name'] ??
+                            'Returned Item')
+                        .toString();
+                    final bucketSize = (item['bucket_size'] ??
+                            item['bucketSize'] ??
+                            item['size'] ??
+                            '')
+                        .toString();
+
+                    return pw.TableRow(
+                      children: [
+                        _tableCell(index.toString(), font, align: pw.TextAlign.center),
+                        _tableCell(productName, font),
+                        _tableCell(bucketSize, font, align: pw.TextAlign.center),
+                        _tableCell(qty.toString(), font, align: pw.TextAlign.center),
+                        _tableCell('₹${rate.toStringAsFixed(0)}', font, align: pw.TextAlign.right),
+                        _tableCell('₹${amount.toStringAsFixed(0)}', font, align: pw.TextAlign.right),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+
+              pw.SizedBox(height: 16),
+
+              // Summary Section
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Container(
+                  width: 250,
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Column(
+                    children: [
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Total Refund Amount:', style: pw.TextStyle(font: boldFont, fontSize: 12)),
+                          pw.Text('₹ ${totalRefund.toStringAsFixed(0)}', style: pw.TextStyle(font: boldFont, fontSize: 14, color: PdfColors.green800)),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Refund Method:', style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey600)),
+                          pw.Text(returnRequest.refundMethod.replaceAll('_', ' ').toUpperCase(), style: pw.TextStyle(font: boldFont, fontSize: 10, color: PdfColors.grey800)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              pw.Spacer(),
+
+              // Footer
+              pw.Divider(color: PdfColors.grey400),
+              pw.SizedBox(height: 8),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Kutbi Paints — Returns & Refunds', style: pw.TextStyle(font: boldFont, fontSize: 10)),
+                  pw.Text('Authorized Signature', style: pw.TextStyle(font: font, fontSize: 10)),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
   }
 }

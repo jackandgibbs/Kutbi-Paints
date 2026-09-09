@@ -256,12 +256,14 @@ class _UdhaariTabContent extends ConsumerWidget {
     final pendingOrders = ds.getAllOrders().where((o) => 
       o.status == 'udhaari_pending_approval' || o.status == 'to_be_revealed'
     ).toList();
-    final activeUdhaari = ds.getAllOrders().where((o) =>
-      o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari'
-    ).toList();
-    final completedUdhaari = ds.getAllOrders().where((o) =>
-      o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari_completed'
-    ).toList();
+    final activeUdhaari = ds.getAllOrders().where((o) {
+      final isOrderReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+      return o.paymentMethod == 'udhaari' && o.paymentStatus == 'udhaari' && !isOrderReturned;
+    }).toList();
+    final completedUdhaari = ds.getAllOrders().where((o) {
+      final isOrderReturned = o.isReturned || ds.hasApprovedReturnForOrder(o.id);
+      return o.paymentMethod == 'udhaari' && (o.paymentStatus == 'udhaari_completed' || isOrderReturned);
+    }).toList();
 
     return DefaultTabController(
       length: 3,
@@ -858,6 +860,8 @@ class _OrderPaymentCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final ds = ref.watch(dataServiceProvider);
+    final isOrderReturned = order.isReturned || ds.hasApprovedReturnForOrder(order.id);
     final selectedIds = ref.watch(selectedPaymentsProvider);
     final isSelected = selectedIds.contains(order.id);
     final isSelectionMode = selectedIds.isNotEmpty;
@@ -942,8 +946,16 @@ class _OrderPaymentCard extends ConsumerWidget {
                         style: GoogleFonts.poppins(fontWeight: FontWeight.w500, color: Colors.grey, fontSize: 12, decoration: TextDecoration.lineThrough),
                       ),
                     Text(
-                      isPending ? 'Pending: ₹${order.remainingAmount.toStringAsFixed(0)}' : '₹${order.totalAmount.toStringAsFixed(0)}',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w700, color: isPending ? Colors.red.shade600 : AppColors.adminPrimary, fontSize: 16),
+                      isOrderReturned
+                          ? '₹0 Due (Returned)'
+                          : isPending ? 'Pending: ₹${order.remainingAmount.toStringAsFixed(0)}' : '₹${order.totalAmount.toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w700,
+                        color: isOrderReturned
+                            ? const Color(0xFF7C3AED)
+                            : isPending ? Colors.red.shade600 : AppColors.adminPrimary,
+                        fontSize: 16,
+                      ),
                     ),
                   ],
                 ),
@@ -1097,7 +1109,7 @@ class _OrderPaymentCard extends ConsumerWidget {
                   ),
                 ),
               ),
-            if (!isSelectionMode && showMarkPaid)
+            if (!isSelectionMode && showMarkPaid && !isOrderReturned)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -1110,7 +1122,24 @@ class _OrderPaymentCard extends ConsumerWidget {
                   ),
                 ),
               ),
-            if (order.paymentStatus == 'udhaari_completed')
+            if (isOrderReturned)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.assignment_return_rounded, color: Color(0xFF7C3AED), size: 18),
+                    const SizedBox(width: 6),
+                    Text('Returned • Udhaari Waived', style: GoogleFonts.poppins(color: const Color(0xFF7C3AED), fontWeight: FontWeight.w700, fontSize: 14)),
+                  ],
+                ),
+              )
+            else if (order.paymentStatus == 'udhaari_completed')
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 10),

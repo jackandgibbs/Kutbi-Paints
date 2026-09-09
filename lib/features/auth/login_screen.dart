@@ -107,7 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     return Scaffold(
       body: Container(
         width: size.width,
-        height: size.height,
+        constraints: BoxConstraints(minHeight: size.height),
         color: AppColors.scaffoldBg,
         child: SafeArea(
           child: SingleChildScrollView(

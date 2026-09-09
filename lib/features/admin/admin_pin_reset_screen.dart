@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 import '../../core/widgets/lottie_loading_widget.dart';
 
@@ -120,9 +122,11 @@ class _AdminPinResetScreenState extends ConsumerState<AdminPinResetScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      body: ResponsiveCenter(
+        maxWidth: Responsive.formMaxWidth(context),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -354,6 +358,7 @@ class _AdminPinResetScreenState extends ConsumerState<AdminPinResetScreen> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

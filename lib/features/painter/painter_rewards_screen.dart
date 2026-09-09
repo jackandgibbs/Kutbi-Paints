@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../core/widgets/clay_card.dart';
 import '../../core/widgets/skeuomorphic_background.dart';
 import '../../models/qr_code_model.dart';
@@ -90,83 +91,88 @@ class _PainterRewardsScreenState extends ConsumerState<PainterRewardsScreen> {
                 final isLoading =
                     snapshot.connectionState == ConnectionState.waiting;
 
-                return CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    _buildAppBar(context),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        child: _TotalPointsCard(points: totalPoints),
-                      ),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.qr_code_scanner_rounded,
-                                size: 18, color: AppColors.textPrimary),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Recent Scans',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const Spacer(),
-                            if (isLoading)
-                              const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.primary,
-                                ),
-                              )
-                            else
-                              Text(
-                                '${scannedQRs.length}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (isLoading && scannedQRs.isEmpty)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        _buildAppBar(context),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                            child: _TotalPointsCard(points: totalPoints),
                           ),
                         ),
-                      )
-                    else if (scannedQRs.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyScansView(
-                          onScan: () => context.push('/painter/scanner'),
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.qr_code_scanner_rounded,
+                                    size: 18, color: AppColors.textPrimary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Recent Scans',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (isLoading)
+                                  const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    '${scannedQRs.length}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                        sliver: SliverList.separated(
-                          itemCount: scannedQRs.length,
-                          separatorBuilder: (_, idx) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (ctx, i) =>
-                              _ScannedQRTile(qr: scannedQRs[i]),
-                        ),
-                      ),
-                  ],
+                        if (isLoading && scannedQRs.isEmpty)
+                          const SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          )
+                        else if (scannedQRs.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: _EmptyScansView(
+                              onScan: () => context.push('/painter/scanner'),
+                            ),
+                          )
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                            sliver: SliverList.separated(
+                              itemCount: scannedQRs.length,
+                              separatorBuilder: (ctx, i) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (ctx, i) =>
+                                  _ScannedQRTile(qr: scannedQRs[i]),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),

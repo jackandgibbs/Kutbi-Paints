@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -78,17 +79,24 @@ class _KutbiPaintsAppState extends ConsumerState<KutbiPaintsApp> {
                 context,
               ).copyWith(textScaler: TextScaler.linear(uiScale)),
               child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(
+                behavior: const MaterialScrollBehavior().copyWith(
                   scrollbars: false,
                   overscroll: false,
                   physics: const ClampingScrollPhysics(),
+                  dragDevices: {
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                    PointerDeviceKind.stylus,
+                  },
                 ),
                 child: NoInternetOverlay(
                   child: VersionCheckOverlay(
                     child: Stack(
                       children: [
                         child!,
-                        if (PlatformSupport.isDesktop)
+                        if (PlatformSupport.isDesktop ||
+                            (kIsWeb && Responsive.isDesktop(context)))
                           const Positioned(
                             bottom: 24,
                             right: 24,

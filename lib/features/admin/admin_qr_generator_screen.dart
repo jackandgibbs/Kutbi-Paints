@@ -16,6 +16,8 @@ import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../models/qr_code_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
@@ -979,17 +981,20 @@ class _AdminQRGeneratorScreenState
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildMetrics(qrs, summaries, screenWidth),
-            const SizedBox(height: 20),
-            _buildFormPanel(isTablet),
-            const SizedBox(height: 20),
-            _buildPreviewPanel(isTablet),
-            const SizedBox(height: 24),
-            _buildHistorySection(summaries, isTablet),
-          ],
+        child: ResponsiveCenter(
+          maxWidth: Responsive.contentMaxWidth(context),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildMetrics(qrs, summaries, screenWidth),
+              const SizedBox(height: 20),
+              _buildFormPanel(isTablet),
+              const SizedBox(height: 20),
+              _buildPreviewPanel(isTablet),
+              const SizedBox(height: 24),
+              _buildHistorySection(summaries, isTablet),
+            ],
+          ),
         ),
       ),
     );

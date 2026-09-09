@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../services/data_service.dart';
 
 class UserActivityScreen extends ConsumerWidget {
@@ -39,9 +41,11 @@ class UserActivityScreen extends ConsumerWidget {
         elevation: 0,
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+      body: ResponsiveCenter(
+        maxWidth: Responsive.contentMaxWidth(context),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Painter Card - Premium Design
@@ -183,6 +187,7 @@ class UserActivityScreen extends ConsumerWidget {
             const SizedBox(height: 40),
           ],
         ),
+      ),
       ),
     );
   }

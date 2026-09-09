@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
+import '../../core/widgets/responsive_center.dart';
 import '../../models/qr_code_model.dart';
 import '../../services/data_service.dart';
 import 'qr_sticker_palette.dart';
@@ -155,9 +157,11 @@ class _DeletedQRsScreenState extends ConsumerState<DeletedQRsScreen> {
         ),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Container(
+        child: ResponsiveCenter(
+          maxWidth: Responsive.contentMaxWidth(context),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Container(
             padding: EdgeInsets.all(isTablet ? 22 : 16),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -403,6 +407,7 @@ class _DeletedQRsScreenState extends ConsumerState<DeletedQRsScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

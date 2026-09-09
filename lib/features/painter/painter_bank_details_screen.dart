@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/responsive.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../services/notification_service.dart';
@@ -100,7 +101,10 @@ class _PainterBankDetailsScreenState
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0EDE8),
-      body: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+          child: Column(
         children: [
           // ── Header ──────────────────────────────────────────────
           Container(
@@ -158,6 +162,8 @@ class _PainterBankDetailsScreenState
             ),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

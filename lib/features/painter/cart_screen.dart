@@ -6,7 +6,9 @@ import '../../core/constants/app_colors.dart';
 import '../../services/cart_service.dart';
 import '../../services/data_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../models/cart_item_model.dart';
 import '../../models/order_model.dart';
+import '../../core/utils/responsive.dart';
 import '../shared/widgets/product_image.dart';
 
 class CartScreen extends ConsumerWidget {
@@ -34,20 +36,28 @@ class CartScreen extends ConsumerWidget {
       ),
       body: cartItems.isEmpty
           ? _buildEmptyCart(context)
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: cartItems.length,
-                    itemBuilder: (context, index) {
-                      final item = cartItems[index];
-                      return _buildCartItem(context, ref, item);
-                    },
-                  ),
+          : Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: Responsive.horizontalPadding(context),
+                          vertical: 16,
+                        ),
+                        itemCount: cartItems.length,
+                        itemBuilder: (context, index) {
+                          final item = cartItems[index];
+                          return _buildCartItem(context, ref, item);
+                        },
+                      ),
+                    ),
+                    _buildSummary(context, ref, total),
+                  ],
                 ),
-                _buildSummary(context, ref, total),
-              ],
+              ),
             ),
     );
   }
@@ -83,67 +93,153 @@ class CartScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCartItem(BuildContext context, WidgetRef ref, dynamic item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+  Widget _buildCartItem(BuildContext context, WidgetRef ref, CartItemModel item) {
+    return Dismissible(
+      key: ValueKey('${item.productId}_${item.bucketSize}_${item.shadeCode ?? ""}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: AppColors.error,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
+            SizedBox(width: 8),
+            Text('Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          ProductImage(
-            imageUrl: item.productImageUrl,
-            productId: item.productId,
-            brand: '', // Brand not strictly needed here for display
-            size: 60,
-            borderRadius: 12,
+      onDismissed: (_) {
+        ref.read(cartProvider.notifier).removeItem(
+          item.productId,
+          item.bucketSize,
+          shadeCode: item.shadeCode,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${item.productName} removed from cart'),
+            duration: const Duration(seconds: 2),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ProductImage(
+              imageUrl: item.productImageUrl,
+              productId: item.productId,
+              brand: '', // Brand not strictly needed here for display
+              size: 60,
+              borderRadius: 12,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.productName,
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${item.bucketSize}${item.shadeCode != null ? ' • ${item.shadeCode}' : ''}',
+                    style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '₹${item.price.toStringAsFixed(0)}',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  item.productName,
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                // Delete button for this product
+                InkWell(
+                  onTap: () {
+                    ref.read(cartProvider.notifier).removeItem(
+                      item.productId,
+                      item.bucketSize,
+                      shadeCode: item.shadeCode,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${item.productName} removed from cart'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: AppColors.error,
+                    ),
+                  ),
                 ),
-                Text(
-                  '${item.bucketSize}${item.shadeCode != null ? ' • ${item.shadeCode}' : ''}',
-                  style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
-                ),
-                Text(
-                  '₹${item.price.toStringAsFixed(0)}',
-                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                const SizedBox(height: 8),
+                // Quantity controls
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _qtyBtn(Icons.remove_rounded, () {
+                      ref.read(cartProvider.notifier).updateQuantity(
+                        item.productId,
+                        item.bucketSize,
+                        item.quantity - 1,
+                        shadeCode: item.shadeCode,
+                      );
+                    }),
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        '${item.quantity}',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    ),
+                    _qtyBtn(Icons.add_rounded, () {
+                      ref.read(cartProvider.notifier).updateQuantity(
+                        item.productId,
+                        item.bucketSize,
+                        item.quantity + 1,
+                        shadeCode: item.shadeCode,
+                      );
+                    }),
+                  ],
                 ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              _qtyBtn(Icons.remove_rounded, () {
-                ref.read(cartProvider.notifier).updateQuantity(item.productId, item.bucketSize, item.quantity - 1, shadeCode: item.shadeCode);
-              }),
-              SizedBox(
-                width: 30,
-                child: Text(
-                  '${item.quantity}',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700),
-                ),
-              ),
-              _qtyBtn(Icons.add_rounded, () {
-                ref.read(cartProvider.notifier).updateQuantity(item.productId, item.bucketSize, item.quantity + 1, shadeCode: item.shadeCode);
-              }),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
