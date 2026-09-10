@@ -155,30 +155,54 @@ class OrderDetailScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Order Deleted',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.error,
-                            ),
+                    Row(
+                      children: [
+                        const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Order Deleted',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                              Text(
+                                'This order was deleted by admin. Bill has been removed.',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppColors.error.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'This order was deleted by admin. Bill has been removed.',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => context.push(
+                            '/painter/order/${Uri.encodeComponent(order.brand)}?reorderOrderId=${order.id}'),
+                        icon: const Icon(Icons.replay_rounded, size: 18),
+                        label: Text('Reorder This Order',
                             style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: AppColors.error.withValues(alpha: 0.8),
-                            ),
+                                fontWeight: FontWeight.w600, fontSize: 13)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brandColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ],

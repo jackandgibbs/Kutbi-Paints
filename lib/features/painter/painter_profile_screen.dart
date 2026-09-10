@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../core/utils/responsive.dart';
 import '../shared/widgets/user_avatar.dart';
+import 'widgets/pay_now_modal.dart';
 
 class PainterProfileScreen extends ConsumerWidget {
   const PainterProfileScreen({super.key});
@@ -123,6 +124,62 @@ class PainterProfileScreen extends ConsumerWidget {
                           'Tier',
                           liveUser.tier.toUpperCase()),
                       _bankDetailsTile(context, liveUser.bankStatus),
+                      const SizedBox(height: 12),
+                      // Pay Now option (Admin QR)
+                      GestureDetector(
+                        onTap: () => showPayNowModal(
+                            context, ref.read(dataServiceProvider).adminQrUrl),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0D9488).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.qr_code_2_rounded,
+                                  color: Color(0xFF0D9488),
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Pay Now',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Scan Admin QR code to pay',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded,
+                                  color: AppColors.textLight, size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       // My Returns quick-link
                       GestureDetector(

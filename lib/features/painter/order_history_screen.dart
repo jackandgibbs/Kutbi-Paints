@@ -9,7 +9,9 @@ import '../../services/data_service.dart';
 import '../../core/utils/responsive.dart';
 
 class OrderHistoryScreen extends ConsumerWidget {
-  const OrderHistoryScreen({super.key});
+  final String? initialTab;
+
+  const OrderHistoryScreen({super.key, this.initialTab});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -22,6 +24,7 @@ class OrderHistoryScreen extends ConsumerWidget {
     final deletedOrders = allOrders.where((o) => o.deletedByAdmin).toList();
 
     return DefaultTabController(
+      initialIndex: (initialTab == 'deleted' || initialTab == '1') ? 1 : 0,
       length: 2,
       child: Scaffold(
         backgroundColor: AppColors.scaffoldBg,
@@ -264,7 +267,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               onPressed: () => context.push(
-                                  '/painter/order/${Uri.encodeComponent(order.brand)}'),
+                                  '/painter/order/${Uri.encodeComponent(order.brand)}?reorderOrderId=${order.id}'),
                               icon: const Icon(Icons.replay_rounded,
                                   size: 18),
                               label: Text('Reorder',
@@ -335,6 +338,26 @@ class OrderHistoryScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => context.push(
+                                  '/painter/order/${Uri.encodeComponent(order.brand)}?reorderOrderId=${order.id}'),
+                              icon: const Icon(Icons.replay_rounded, size: 18),
+                              label: Text('Reorder',
+                                  style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600, fontSize: 13)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brandColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
                             ),
                           ),
                         ],

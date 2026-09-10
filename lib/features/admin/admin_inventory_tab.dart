@@ -139,6 +139,17 @@ class _AdminInventoryTabState extends ConsumerState<AdminInventoryTab> {
                     onTap: () => context.push('/admin/bank-details'),
                     index: 3,
                   ),
+                  const SizedBox(height: 18),
+
+                  // Reset PINs Card
+                  _claymorphicActionCard(
+                    icon: Icons.lock_reset_rounded,
+                    title: 'Reset PINs',
+                    subtitle: 'Change painter login PINs',
+                    glowColor: const Color(0xFFF43F5E),
+                    onTap: () => context.push('/admin/reset-pin'),
+                    index: 4,
+                  ),
                 ],
               ),
             ),

@@ -22,6 +22,8 @@ import '../shared/widgets/product_image.dart';
 import '../shared/widgets/user_avatar.dart';
 import 'widgets/banner_carousel.dart';
 import 'widgets/banner_popup.dart';
+import 'widgets/home_active_offers.dart';
+import 'widgets/pay_now_modal.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:flutter/services.dart';
@@ -280,9 +282,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
   // ─── HOME TAB ──────────────────────────────────────────────────
   Widget _buildHomeTab(dynamic user, DataService ds) {
     final recentOrders = ds.getOrdersByPainter(user.id);
-    final totalBuckets = ds.getTotalBucketsForPainter(user.id);
     final lastProducts = ds.getLastOrderedProducts(user.id);
-    final totalProducts = ds.getAllProducts().length;
 
     final hPad = Responsive.horizontalPadding(context);
     final isDesktopView = Responsive.isDesktop(context);
@@ -419,35 +419,32 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                         child: FadeInAnimation(child: widget),
                       ),
                       children: [
-              // ─── 2 Stat Cards (1 row) ────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.push('/painter/orders'),
-                      child: _statCardRaw(
-                        'Buckets Ordered',
-                        '$totalBuckets',
-                        Icons.inventory_2_rounded,
-                        const Color(0xFF6366F1),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.push('/painter/rewards'),
-                      child: _statCardRaw(
-                        'Reward Points',
-                        '${ds.users.firstWhere((u) => u.id == user.id, orElse: () => user).points}',
-                        Icons.stars_rounded,
-                        const Color(0xFFFFD700), // Gold
-                      ),
-                    ),
-                  ),
-                ],
+              // ─── Reward Points Card ────────────────────
+              GestureDetector(
+                onTap: () => context.push('/painter/rewards'),
+                child: _wideStatCard(
+                  'Reward Points',
+                  '${ds.users.firstWhere((u) => u.id == user.id, orElse: () => user).points}',
+                  Icons.stars_rounded,
+                  const Color(0xFFFFD700), // Gold
+                ),
               ),
               const SizedBox(height: 12),
+
+              // ─── Current Active Offers ─────────────────
+              Builder(
+                builder: (ctx) {
+                  final offers = ds.getActivePromotions();
+                  if (offers.isEmpty) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: HomeActiveOffersWidget(
+                      offers: offers,
+                      onBrandTap: (brand) => context.push(_routeForBrand(brand)),
+                    ),
+                  );
+                },
+              ),
               Builder(
                 builder: (ctx) {
                   final liveUser = ds.users.firstWhere((u) => u.id == user.id, orElse: () => user);
@@ -561,16 +558,6 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   '${ds.getBilledOrdersForPainter(user.id).length} Bills',
                   Icons.receipt_long_rounded,
                   const Color(0xFF3B82F6),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () => context.push('/painter/analytics'),
-                child: _wideStatCard(
-                  AppLocalizations.of(context)!.myPerformance,
-                  'View Stats',
-                  Icons.analytics_rounded,
-                  const Color(0xFF10B981),
                 ),
               ),
               const SizedBox(height: 28),
@@ -713,6 +700,8 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
       case 'berger':       return '/painter/berger';
       case 'birla opus':   return '/painter/birla-opus';
       case 'tools':        return '/painter/tools';
+      case 'all':
+      case 'all brands':   return '/painter/asian-paints';
       default:             return '/painter/brand/${Uri.encodeComponent(name)}';
     }
   }
@@ -1296,7 +1285,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                       final deletedOrders = orders.where((o) => o.deletedByAdmin).toList();
 
                       return GestureDetector(
-                        onTap: () => context.push('/painter/orders'),
+                        onTap: () => context.push('/painter/orders?tab=deleted'),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 16),
                           child: ClipRRect(
@@ -1662,6 +1651,9 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                   if (user.businessAddress != null)
                     _skeuoInfoTile(Icons.location_on_rounded, 'Address', user.businessAddress!),
 
+                  // Pay Now — Skeuomorphic clickable card
+                  _skeuoPayNowTile(context, ds),
+
                   // Bank Details — Skeuomorphic clickable card
                   _skeuoBankDetailsTile(user),
 
@@ -1883,6 +1875,121 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Skeuomorphic Pay Now tile — clickable card with admin QR modal
+  Widget _skeuoPayNowTile(BuildContext context, DataService ds) {
+    const accentColor = Color(0xFF0D9488);
+
+    return GestureDetector(
+      onTap: () => showPayNowModal(context, ds.adminQrUrl),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: const Color(0xFFF6F3EE),
+          border: Border.all(
+            color: const Color(0xFFE8E4DD),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.65),
+              blurRadius: 4,
+              spreadRadius: 0,
+              offset: const Offset(-1.5, -1.5),
+            ),
+          ],
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFFAF8F5),
+              Color(0xFFF0ECE6),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFEBE7E0),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.clayDarkShadow.withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(2, 2),
+                  ),
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    blurRadius: 4,
+                    offset: const Offset(-1.5, -1.5),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.qr_code_2_rounded, color: accentColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pay Now',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      )),
+                  const SizedBox(height: 2),
+                  Text('Scan Admin QR Code to pay',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.2,
+                      )),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Scan',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: accentColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward_ios_rounded, color: accentColor, size: 11),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

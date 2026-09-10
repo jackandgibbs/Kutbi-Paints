@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -279,7 +280,7 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
               ],
             ),
             content: SizedBox(
-              width: 500,
+              width: min(500.0, MediaQuery.of(context).size.width - 48),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -381,18 +382,29 @@ class _AdminPendingBillsScreenState extends ConsumerState<AdminPendingBillsScree
                     Text('Discount', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: discountMode,
+                      isExpanded: true,
+                      initialValue: discountMode,
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       items: [
-                        const DropdownMenuItem(value: 'none', child: Text('No Discount')),
-                        const DropdownMenuItem(value: 'manual', child: Text('Manual Discount')),
+                        const DropdownMenuItem(
+                          value: 'none',
+                          child: Text('No Discount', overflow: TextOverflow.ellipsis),
+                        ),
+                        const DropdownMenuItem(
+                          value: 'manual',
+                          child: Text('Manual Discount', overflow: TextOverflow.ellipsis),
+                        ),
                         ...ds.getAllPromotions.map((p) => DropdownMenuItem(
                           value: p.id,
-                          child: Text('${p.title} (${(p.discountPercent * 100).toStringAsFixed(0)}% OFF) - ${p.brand}'),
+                          child: Text(
+                            '${p.title} (${(p.discountPercent * 100).toStringAsFixed(0)}% OFF) - ${p.brand}',
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         )),
                       ],
                       onChanged: (val) {

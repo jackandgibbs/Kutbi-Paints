@@ -8,6 +8,7 @@ class PromotionModel {
   final DateTime endDate;
   final bool isActive;
   final DateTime createdAt;
+  final bool isDeleted;
 
   PromotionModel({
     required this.id,
@@ -19,6 +20,7 @@ class PromotionModel {
     required this.endDate,
     required this.isActive,
     required this.createdAt,
+    this.isDeleted = false,
   });
 
   factory PromotionModel.fromJson(Map<String, dynamic> json) {
@@ -32,11 +34,12 @@ class PromotionModel {
       endDate: DateTime.tryParse(json['end_date']?.toString() ?? '') ?? DateTime.now().add(const Duration(days: 30)),
       isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      isDeleted: json['is_deleted'] as bool? ?? false,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
+  Map<String, dynamic> toJson({bool includeDeleted = false}) {
+    final map = <String, dynamic>{
       'id': id,
       'title': title,
       'brand': brand,
@@ -47,16 +50,20 @@ class PromotionModel {
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
     };
+    if (includeDeleted) {
+      map['is_deleted'] = isDeleted;
+    }
+    return map;
   }
 
   // Helper to check if promotion is currently valid by time
   bool get isValidNow {
     final now = DateTime.now();
-    return isActive && !now.isBefore(startDate) && now.isBefore(endDate);
+    return !isDeleted && isActive && !now.isBefore(startDate) && now.isBefore(endDate);
   }
 
   bool get isUpcoming {
-    return isActive && DateTime.now().isBefore(startDate);
+    return !isDeleted && isActive && DateTime.now().isBefore(startDate);
   }
 
   bool get isExpired {
@@ -73,6 +80,7 @@ class PromotionModel {
     DateTime? endDate,
     bool? isActive,
     DateTime? createdAt,
+    bool? isDeleted,
   }) {
     return PromotionModel(
       id: id ?? this.id,
@@ -84,6 +92,7 @@ class PromotionModel {
       endDate: endDate ?? this.endDate,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 }

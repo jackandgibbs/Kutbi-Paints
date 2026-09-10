@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -32,6 +34,8 @@ class DataService extends ChangeNotifier {
   List<LedgerEntry> _ledger = [];
   List<MessageModel> _messages = [];
   List<PromotionModel> _promotions = [];
+  static const String _deletedPromotionsKey = 'cached_deleted_promotions_v1';
+  List<PromotionModel> _deletedPromotions = [];
   final List<ReferralModel> _referrals = [];
   List<QRCodeModel> _qrCodes = [];
   List<MilestoneModel> _milestones = [];
@@ -75,6 +79,7 @@ class DataService extends ChangeNotifier {
   String _normalizeLabel(String value) => value.trim().toLowerCase();
 
   List<UserModel> get users => _users;
+  List<ProductModel> get products => _products;
   List<UserModel> get painters => _users.where((u) => u.isPainter).toList();
   List<UserModel> get paintersWithPendingBank =>
       _users.where((u) => u.isPainter && u.bankStatus == 'pending').toList();
@@ -159,6 +164,8 @@ class DataService extends ChangeNotifier {
       final promosData = await _sb.from('promotions').select();
       _promotions = promosData.map((e) => PromotionModel.fromJson(e)).toList();
     } catch (e) { debugPrint('Error loading promotions: $e'); }
+
+    await _loadDeletedPromotions();
 
     try {
       final qrData = await _sb.from('qr_codes').select();
@@ -3106,11 +3113,49 @@ class DataService extends ChangeNotifier {
   // SEASONAL / TIME-BASED PRICING
   // ═══════════════════════════════════════════════════════════════
 
-  List<PromotionModel> get getAllPromotions => List.unmodifiable(_promotions);
+  List<PromotionModel> get getAllPromotions =>
+      List.unmodifiable(_promotions.where((p) => !p.isDeleted));
+
+  List<PromotionModel> get getDeletedPromotions =>
+      List.unmodifiable(_deletedPromotions);
+
+  List<PromotionModel> get getDeactivatedPromotions =>
+      _promotions.where((p) => !p.isDeleted && (!p.isActive || p.isExpired)).toList();
+
+  List<PromotionModel> get getActivePromotionsAdmin =>
+      _promotions.where((p) => !p.isDeleted && p.isActive && !p.isExpired).toList();
 
   List<PromotionModel> getActivePromotions() {
-    return _promotions.where((p) => p.isValidNow).toList()
+    return _promotions.where((p) => p.isValidNow && !p.isDeleted).toList()
       ..sort((a, b) => a.endDate.compareTo(b.endDate));
+  }
+
+  Future<void> _loadDeletedPromotions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_deletedPromotionsKey);
+      if (raw != null) {
+        _deletedPromotions = raw.map((str) {
+          try {
+            return PromotionModel.fromJson(jsonDecode(str) as Map<String, dynamic>);
+          } catch (_) {
+            return null;
+          }
+        }).whereType<PromotionModel>().toList();
+      }
+    } catch (e) {
+      debugPrint('Error loading deleted promotions: $e');
+    }
+  }
+
+  Future<void> _saveDeletedPromotions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = _deletedPromotions.map((p) => jsonEncode(p.toJson(includeDeleted: true))).toList();
+      await prefs.setStringList(_deletedPromotionsKey, list);
+    } catch (e) {
+      debugPrint('Error saving deleted promotions: $e');
+    }
   }
 
   /// Calculates the promotional price for a specific base price if an active promo applies
@@ -3152,13 +3197,52 @@ class DataService extends ChangeNotifier {
   }
 
   Future<void> deletePromotion(String id) async {
-    _promotions.removeWhere((p) => p.id == id);
+    final index = _promotions.indexWhere((p) => p.id == id);
+    if (index != -1) {
+      final promo = _promotions[index].copyWith(isDeleted: true);
+      _promotions.removeAt(index);
+      _deletedPromotions.removeWhere((p) => p.id == id);
+      _deletedPromotions.insert(0, promo);
+      notifyListeners();
+      await _saveDeletedPromotions();
+
+      try {
+        await _sb.from('promotions').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('Error deleting promotion: $e');
+      }
+    }
+  }
+
+  Future<void> permanentlyDeletePromotion(String id) async {
+    _deletedPromotions.removeWhere((p) => p.id == id);
     notifyListeners();
+    await _saveDeletedPromotions();
 
     try {
       await _sb.from('promotions').delete().eq('id', id);
     } catch (e) {
-      debugPrint('Error deleting promotion: $e');
+      debugPrint('Error permanently deleting promotion: $e');
+    }
+  }
+
+  Future<void> restorePromotion(PromotionModel promo) async {
+    _deletedPromotions.removeWhere((p) => p.id == promo.id);
+    final restored = promo.copyWith(
+      isDeleted: false,
+      isActive: true,
+      startDate: promo.isExpired ? DateTime.now() : promo.startDate,
+      endDate: promo.isExpired ? DateTime.now().add(const Duration(days: 30)) : promo.endDate,
+    );
+    _promotions.removeWhere((p) => p.id == promo.id);
+    _promotions.insert(0, restored);
+    notifyListeners();
+    await _saveDeletedPromotions();
+
+    try {
+      await _sb.from('promotions').upsert(restored.toJson());
+    } catch (e) {
+      debugPrint('Error restoring promotion in Supabase: $e');
     }
   }
 

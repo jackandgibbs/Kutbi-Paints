@@ -9,6 +9,32 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
 
+  /// Master switch to pause or resume all notifications across the app.
+  /// When true, all notifications (order status updates, low stock, bills, returns, etc.)
+  /// are suppressed.
+  static bool paused = true;
+
+  /// Pause all notifications and cancel any delivered notifications
+  static void pause() {
+    paused = true;
+    cancelAll();
+  }
+
+  /// Resume notifications
+  static void resume() {
+    paused = false;
+  }
+
+  /// Cancel all delivered and scheduled notifications
+  static Future<void> cancelAll() async {
+    if (!PlatformSupport.supportsLocalNotifications) return;
+    try {
+      await _plugin.cancelAll();
+    } catch (e) {
+      debugPrint('NotificationService cancelAll error: $e');
+    }
+  }
+
   /// Initialize the notification plugin
   static Future<void> init() async {
     if (_initialized || !PlatformSupport.supportsLocalNotifications) return;
@@ -28,11 +54,11 @@ class NotificationService {
     );
 
     await _plugin.initialize(settings);
-    
-    // Explicitly request permission for Android 13+
-    await requestPermissions();
-    
     _initialized = true;
+
+    if (paused) {
+      await cancelAll();
+    }
   }
 
   static Future<void> requestPermissions() async {
@@ -241,7 +267,8 @@ class NotificationService {
     required String channel,
     required String channelName,
   }) async {
-    if (!PlatformSupport.supportsLocalNotifications) return;
+    // If notifications are paused or not supported on this platform, suppress them completely
+    if (paused || !PlatformSupport.supportsLocalNotifications) return;
 
     try {
       final androidDetails = AndroidNotificationDetails(

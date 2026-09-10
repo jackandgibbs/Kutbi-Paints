@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/order_model.dart';
 import '../models/return_model.dart';
+import '../models/custom_invoice_model.dart';
 
 class BillExportService {
   static const _invoiceKey = 'kutbi_invoice_number';
@@ -450,4 +451,245 @@ class BillExportService {
 
     return pdf.save();
   }
+
+  static Future<Uint8List> generateCustomInvoicePdf(CustomInvoiceModel invoice) async {
+    final pdf = pw.Document();
+    final font = await PdfGoogleFonts.poppinsRegular();
+    final boldFont = await PdfGoogleFonts.poppinsBold();
+
+    final billDate = DateFormat('dd MMM yyyy').format(invoice.date);
+    final totalQty = invoice.items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final isPurchase = invoice.isPurchase;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Top Title: ESTIMATE / RETURN BILL
+              pw.Center(
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 24, vertical: 5),
+                  margin: const pw.EdgeInsets.only(bottom: 12),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(
+                      color: isPurchase ? PdfColors.grey800 : PdfColors.red800,
+                      width: 1.5,
+                    ),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Text(
+                    isPurchase ? 'ESTIMATE / INVOICE' : 'RETURN BILL / CREDIT NOTE',
+                    style: pw.TextStyle(
+                      font: boldFont,
+                      fontSize: 15,
+                      color: isPurchase ? PdfColors.grey900 : PdfColors.red800,
+                      letterSpacing: 2.5,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Header with Invoice Number and Date
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Date: $billDate', style: pw.TextStyle(font: boldFont, fontSize: 12)),
+                  pw.Text(
+                    '${isPurchase ? 'Invoice' : 'Credit Note'} No: ${invoice.invoiceNumber}',
+                    style: pw.TextStyle(font: boldFont, fontSize: 12),
+                  ),
+                ],
+              ),
+
+              pw.SizedBox(height: 18),
+
+              // Party Details Section
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    width: 130,
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: pw.BoxDecoration(
+                      color: isPurchase ? PdfColors.grey200 : PdfColors.red50,
+                    ),
+                    child: pw.Text(
+                      isPurchase ? 'BILL TO' : 'RETURN FROM',
+                      style: pw.TextStyle(font: boldFont, fontSize: 10),
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    invoice.painterName.isNotEmpty ? invoice.painterName : 'Customer / Painter',
+                    style: pw.TextStyle(font: boldFont, fontSize: 13),
+                  ),
+                  if (invoice.painterPhone.isNotEmpty)
+                    pw.Text('Mobile : ${invoice.painterPhone}', style: pw.TextStyle(font: font, fontSize: 11)),
+                  if (invoice.notes.isNotEmpty) ...[
+                    pw.SizedBox(height: 2),
+                    pw.Text('Notes: ${invoice.notes}', style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey700)),
+                  ],
+                ],
+              ),
+
+              pw.SizedBox(height: 18),
+
+              // Items Table
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey300),
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(40),
+                  1: const pw.FlexColumnWidth(),
+                  2: const pw.FixedColumnWidth(65),
+                  3: const pw.FixedColumnWidth(50),
+                  4: const pw.FixedColumnWidth(75),
+                  5: const pw.FixedColumnWidth(85),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      color: isPurchase ? PdfColors.grey200 : PdfColors.grey100,
+                    ),
+                    children: [
+                      _tableHeaderCell('S.NO.', boldFont),
+                      _tableHeaderCell(isPurchase ? 'ITEM DESCRIPTION' : 'RETURNED ITEM', boldFont),
+                      _tableHeaderCell('SIZE', boldFont),
+                      _tableHeaderCell('QTY.', boldFont),
+                      _tableHeaderCell('RATE', boldFont),
+                      _tableHeaderCell(isPurchase ? 'AMOUNT' : 'REFUND', boldFont),
+                    ],
+                  ),
+                  ...invoice.items.asMap().entries.map((entry) {
+                    final index = entry.key + 1;
+                    final item = entry.value;
+                    return pw.TableRow(
+                      children: [
+                        _tableCell(index.toString(), font, align: pw.TextAlign.center),
+                        _tableCell(item.productName, font),
+                        _tableCell(item.bucketSize, font, align: pw.TextAlign.center),
+                        _tableCell(item.quantity.toString(), font, align: pw.TextAlign.center),
+                        _tableCell('₹ ${item.rate.toStringAsFixed(0)}', font, align: pw.TextAlign.right),
+                        _tableCell('₹ ${item.amount.toStringAsFixed(0)}', font, align: pw.TextAlign.right),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+
+              // Subtotal row
+              pw.Table(
+                border: pw.TableBorder.all(color: PdfColors.grey300),
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(40),
+                  1: const pw.FlexColumnWidth(),
+                  2: const pw.FixedColumnWidth(65),
+                  3: const pw.FixedColumnWidth(50),
+                  4: const pw.FixedColumnWidth(75),
+                  5: const pw.FixedColumnWidth(85),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.SizedBox()),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('TOTAL QTY / SUBTOTAL', style: pw.TextStyle(font: boldFont, fontSize: 10)),
+                      ),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.SizedBox()),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('$totalQty PCS', style: pw.TextStyle(font: boldFont, fontSize: 10), textAlign: pw.TextAlign.center),
+                      ),
+                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.SizedBox()),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('₹ ${invoice.subtotal.toStringAsFixed(0)}', style: pw.TextStyle(font: boldFont, fontSize: 10), textAlign: pw.TextAlign.right),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+
+              pw.SizedBox(height: 18),
+
+              // Summary / Footer
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Terms / Notes
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('TERMS & NOTES', style: pw.TextStyle(font: boldFont, fontSize: 9)),
+                        pw.SizedBox(height: 4),
+                        if (isPurchase) ...[
+                          pw.Text('1. Goods once sold will not be taken back without valid bill.', style: pw.TextStyle(font: font, fontSize: 8)),
+                          pw.Text('2. All disputes are subject to Dahod jurisdiction only.', style: pw.TextStyle(font: font, fontSize: 8)),
+                        ] else ...[
+                          pw.Text('1. Return credit processed for verified inventory.', style: pw.TextStyle(font: font, fontSize: 8)),
+                          pw.Text('2. Retain this credit slip for accounting reference.', style: pw.TextStyle(font: font, fontSize: 8)),
+                        ],
+                      ],
+                    ),
+                  ),
+                  // Totals Box
+                  pw.Expanded(
+                    flex: 3,
+                    child: pw.Column(
+                      children: [
+                        if (invoice.discount > 0) ...[
+                          _summaryRow('Subtotal', '₹ ${invoice.subtotal.toStringAsFixed(0)}', font),
+                          _summaryRow('Discount / Adjustment', '- ₹ ${invoice.discount.toStringAsFixed(0)}', font),
+                        ],
+                        _summaryRow(
+                          isPurchase ? 'Grand Total' : 'Net Refund Total',
+                          '₹ ${invoice.totalAmount.toStringAsFixed(0)}',
+                          boldFont,
+                          isBold: true,
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Align(
+                          alignment: pw.Alignment.centerRight,
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.end,
+                            children: [
+                              pw.Text('Total in words', style: pw.TextStyle(font: font, fontSize: 9, color: PdfColors.grey700)),
+                              pw.Text(_getNumberInWords(invoice.totalAmount.toInt()), style: pw.TextStyle(font: font, fontSize: 9)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              pw.Spacer(),
+
+              // Bottom signature
+              pw.Divider(color: PdfColors.grey400),
+              pw.SizedBox(height: 6),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Kutbi Paints — Dahod', style: pw.TextStyle(font: boldFont, fontSize: 10)),
+                  pw.Text('Authorized Signature', style: pw.TextStyle(font: font, fontSize: 10)),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
 }
+

@@ -22,7 +22,6 @@ import '../features/painter/painter_profile_screen.dart';
 import '../features/painter/painter_scanner_screen.dart';
 import '../features/painter/painter_rewards_screen.dart';
 import '../features/painter/painter_rewards_history_screen.dart';
-import '../features/painter/painter_analytics_screen.dart';
 import '../features/painter/painter_ledger_screen.dart';
 import '../features/painter/pending_debt_screen.dart';
 import '../features/painter/painter_bills_screen.dart';
@@ -66,6 +65,7 @@ import '../features/painter/my_returns_screen.dart';
 import '../features/painter/return_tracking_screen.dart';
 import '../features/admin/admin_returns_screen.dart';
 import '../features/admin/return_detail_admin_screen.dart';
+import '../features/admin/admin_generate_invoice_screen.dart';
 
 
 /// Bridges Riverpod auth-state changes into a [Listenable] so GoRouter can
@@ -281,6 +281,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final productId = state.uri.queryParameters['productId'];
           final size = state.uri.queryParameters['size'];
           final qty = int.tryParse(state.uri.queryParameters['qty'] ?? '');
+          final reorderOrderId = state.uri.queryParameters['reorderOrderId'];
           return fadeTransitionPage(
             state: state,
             child: OrderFormScreen(
@@ -288,6 +289,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               initialProductId: productId,
               initialSize: size,
               initialQty: qty,
+              reorderOrderId: reorderOrderId,
             ),
           );
         },
@@ -312,10 +314,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/painter/orders',
-        pageBuilder: (context, state) => fadeTransitionPage(
-          state: state,
-          child: const OrderHistoryScreen(),
-        ),
+        pageBuilder: (context, state) {
+          final tab = state.uri.queryParameters['tab'];
+          return fadeTransitionPage(
+            state: state,
+            child: OrderHistoryScreen(initialTab: tab),
+          );
+        },
       ),
       GoRoute(
         path: '/painter/order-detail/:orderId',
@@ -371,13 +376,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const PainterRewardsHistoryScreen(),
-        ),
-      ),
-      GoRoute(
-        path: '/painter/analytics',
-        pageBuilder: (context, state) => fadeTransitionPage(
-          state: state,
-          child: const PainterAnalyticsScreen(),
         ),
       ),
       GoRoute(
@@ -589,10 +587,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/promotions',
-        pageBuilder: (context, state) => fadeTransitionPage(
-          state: state,
-          child: const AdminPromotionsScreen(),
-        ),
+        pageBuilder: (context, state) {
+          final tab = state.uri.queryParameters['tab'];
+          return fadeTransitionPage(
+            state: state,
+            child: AdminPromotionsScreen(initialTab: tab),
+          );
+        },
       ),
       GoRoute(
         path: '/admin/settings',
@@ -627,6 +628,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => fadeTransitionPage(
           state: state,
           child: const GeneratedBillsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/admin/generate-invoice',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          state: state,
+          child: const AdminGenerateInvoiceScreen(),
         ),
       ),
       GoRoute(

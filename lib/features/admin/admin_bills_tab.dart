@@ -100,6 +100,17 @@ class _AdminBillsTabState extends ConsumerState<AdminBillsTab> {
                 ),
                 const SizedBox(height: 18),
 
+                // Generate Invoice Card
+                _claymorphicActionCard(
+                  icon: Icons.post_add_rounded,
+                  title: 'Generate Invoice',
+                  subtitle: 'Create customized bills & returns',
+                  glowColor: const Color(0xFFF97316),
+                  onTap: () => context.push('/admin/generate-invoice'),
+                  index: 2,
+                ),
+                const SizedBox(height: 18),
+
                 // Generated Bills Card
                 _claymorphicActionCard(
                   icon: Icons.history_rounded,
@@ -107,7 +118,7 @@ class _AdminBillsTabState extends ConsumerState<AdminBillsTab> {
                   subtitle: 'View accepted & deleted orders',
                   glowColor: const Color(0xFF7C3AED),
                   onTap: () => context.push('/admin/generated-bills'),
-                  index: 2,
+                  index: 3,
                 ),
                 const SizedBox(height: 18),
 
@@ -120,17 +131,6 @@ class _AdminBillsTabState extends ConsumerState<AdminBillsTab> {
                   badgeText: activeOrders > 0 ? '$activeOrders active' : null,
                   badgeColor: const Color(0xFF7C3AED),
                   onTap: () => context.push('/admin/orders'),
-                  index: 3,
-                ),
-                const SizedBox(height: 18),
-
-                // Reset PINs Card
-                _claymorphicActionCard(
-                  icon: Icons.lock_reset_rounded,
-                  title: 'Reset PINs',
-                  subtitle: 'Change painter login PINs',
-                  glowColor: const Color(0xFFF43F5E),
-                  onTap: () => context.push('/admin/reset-pin'),
                   index: 4,
                 ),
                 const SizedBox(height: 18),

@@ -20,6 +20,7 @@ class OrderFormScreen extends ConsumerStatefulWidget {
   final String? initialProductId;
   final String? initialSize;
   final int? initialQty;
+  final String? reorderOrderId;
 
   const OrderFormScreen({
     super.key,
@@ -27,6 +28,7 @@ class OrderFormScreen extends ConsumerStatefulWidget {
     this.initialProductId,
     this.initialSize,
     this.initialQty,
+    this.reorderOrderId,
   });
 
   @override
@@ -42,7 +44,6 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
   final List<_OrderItemEntry> _items = [];
 
   bool _isFetchingLocation = false;
-  final bool _addingToCart = false;
 
   late final AnimationController _staggerController;
 
@@ -54,23 +55,86 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
       duration: const Duration(milliseconds: 1000),
     );
 
-    if (widget.initialProductId != null) {
+    // If reordering from a previous / deleted order, load all items
+    if (widget.reorderOrderId != null && widget.reorderOrderId!.isNotEmpty) {
       final ds = ref.read(dataServiceProvider);
-      final product = ds.getProductById(widget.initialProductId!);
-      if (product != null) {
-        final entry = _OrderItemEntry();
-        entry.selectedProduct = product;
-        entry.selectedSize =
-            widget.initialSize ?? product.availableBucketSizes.first;
-        if (widget.initialQty != null) {
-          entry.qtyCtrl.text = widget.initialQty.toString();
+      final order = ds.getOrderById(widget.reorderOrderId!);
+      if (order != null && order.items.isNotEmpty) {
+        for (final item in order.items) {
+          ProductModel? product = ds.getProductById(item.productId);
+          if (product == null) {
+            try {
+              product = ds.products.firstWhere(
+                (p) => p.name.toLowerCase() == item.productName.toLowerCase(),
+              );
+            } catch (_) {}
+          }
+          if (product == null) {
+            try {
+              product = ds.products.firstWhere(
+                (p) => p.colorCode.toLowerCase() == item.colorCode.toLowerCase(),
+              );
+            } catch (_) {}
+          }
+          if (product == null && item.productName.isNotEmpty) {
+            product = ProductModel(
+              id: item.productId.isNotEmpty ? item.productId : 'reorder_${DateTime.now().millisecondsSinceEpoch}',
+              name: item.productName,
+              brand: widget.brand,
+              category: 'Paint',
+              subCategory: 'Standard',
+              colorCode: item.colorCode,
+              colorName: item.colorName,
+              colorHex: item.colorHex.isNotEmpty ? item.colorHex : '#FFFFFF',
+              bucketSizes: [item.bucketSize],
+              prices: {item.bucketSize: item.unitPrice},
+              stockLevel: 100,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            );
+          }
+
+          if (product != null) {
+            final entry = _OrderItemEntry();
+            entry.selectedProduct = product;
+            entry.selectedSize = product.availableBucketSizes.contains(item.bucketSize)
+                ? item.bucketSize
+                : (product.availableBucketSizes.isNotEmpty
+                    ? product.availableBucketSizes.first
+                    : item.bucketSize);
+            entry.qtyCtrl.text = item.quantity.toString();
+            if (item.shadeCode != null && item.shadeCode!.isNotEmpty) {
+              entry.shadeCodeCtrl.text = item.shadeCode!;
+            }
+            _items.add(entry);
+          }
         }
-        _items.add(entry);
+
+        if (order.siteLocation.isNotEmpty) {
+          _siteLocationCtrl.text = order.siteLocation;
+        }
+      }
+    }
+
+    if (_items.isEmpty) {
+      if (widget.initialProductId != null) {
+        final ds = ref.read(dataServiceProvider);
+        final product = ds.getProductById(widget.initialProductId!);
+        if (product != null) {
+          final entry = _OrderItemEntry();
+          entry.selectedProduct = product;
+          entry.selectedSize =
+              widget.initialSize ?? product.availableBucketSizes.first;
+          if (widget.initialQty != null) {
+            entry.qtyCtrl.text = widget.initialQty.toString();
+          }
+          _items.add(entry);
+        } else {
+          _addItem();
+        }
       } else {
         _addItem();
       }
-    } else {
-      _addItem();
     }
 
     _staggerController.forward();
@@ -529,6 +593,33 @@ class _OrderFormScreenState extends ConsumerState<OrderFormScreen>
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (widget.reorderOrderId != null && widget.reorderOrderId!.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: brandColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: brandColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.replay_rounded, color: brandColor, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Products and details from your previous order have been selected. Review quantities and site location before placing.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: brandColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // Site Location
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
