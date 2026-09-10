@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -16,8 +15,6 @@ import 'services/data_service.dart';
 import 'providers/global_refresh_provider.dart';
 import 'core/widgets/lottie_loading_widget.dart';
 import 'core/utils/responsive.dart';
-import 'core/utils/platform_support.dart';
-import 'widgets/ui_scale_controller.dart';
 
 class RestartIntent extends Intent {
   const RestartIntent();
@@ -95,13 +92,6 @@ class _KutbiPaintsAppState extends ConsumerState<KutbiPaintsApp> {
                     child: Stack(
                       children: [
                         child!,
-                        if (PlatformSupport.isDesktop ||
-                            (kIsWeb && Responsive.isDesktop(context)))
-                          const Positioned(
-                            bottom: 24,
-                            right: 24,
-                            child: UIScaleController(),
-                          ),
                         Consumer(
                           builder: (context, ref, _) {
                             final isRefreshing = ref.watch(globalRefreshProvider);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../utils/responsive.dart';
+import '../../widgets/ui_scale_controller.dart';
 
 /// A desktop shell that provides a sidebar navigation + optional top bar.
 /// On mobile-width windows, it falls back to showing just the [body].
@@ -111,8 +112,6 @@ class _DesktopSidebar extends StatefulWidget {
 }
 
 class _DesktopSidebarState extends State<_DesktopSidebar> {
-  bool _isRefreshing = false;
-
   @override
   Widget build(BuildContext context) {
     final isWide = Responsive.isWideDesktop(context);
@@ -163,77 +162,14 @@ class _DesktopSidebarState extends State<_DesktopSidebar> {
             ),
           ),
 
-          // ── Refresh button ────────────────────────
-          if (widget.onRefresh != null) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  onTap: _isRefreshing ? null : () async {
-                    setState(() => _isRefreshing = true);
-                    widget.onRefresh!();
-                    await Future.delayed(const Duration(milliseconds: 1500));
-                    if (mounted) setState(() => _isRefreshing = false);
-                  },
-                  borderRadius: BorderRadius.circular(12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isWide ? 14 : 0,
-                      vertical: 11,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _isRefreshing
-                          ? AppColors.adminAccent.withValues(alpha: 0.08)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: isWide
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.center,
-                      children: [
-                        _isRefreshing
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                      AppColors.adminAccent),
-                                ),
-                              )
-                            : Icon(
-                                Icons.refresh_rounded,
-                                size: 20,
-                                color: AppColors.textSecondary,
-                              ),
-                        if (isWide) ...[
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              _isRefreshing ? 'Refreshing...' : 'Refresh Data',
-                              style: GoogleFonts.poppins(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: _isRefreshing
-                                    ? AppColors.adminAccent
-                                    : AppColors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+          // ── Zoom In/Out & Reload Controls ────────
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: UIScaleController(
+              isExpanded: isWide,
+              onRefresh: widget.onRefresh,
             ),
-          ],
+          ),
 
           // ── User info + Logout ───────────────────
           if (widget.onLogout != null) ...[

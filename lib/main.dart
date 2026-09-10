@@ -38,8 +38,12 @@ void main() async {
     debugPrint('Step 1: Dotenv Loaded');
 
     debugPrint('Step 2: Offline Service Initializing...');
-    await OfflineService.init();
-    debugPrint('Step 2: Offline Service Initialized');
+    try {
+      await OfflineService.init();
+      debugPrint('Step 2: Offline Service Initialized');
+    } catch (e) {
+      debugPrint('Offline Service init failed (continuing without cache): $e');
+    }
 
     debugPrint('Step 3: Notification Service Initializing...');
     await NotificationService.init();
