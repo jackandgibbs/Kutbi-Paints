@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
+import '../../models/order_model.dart';
+import '../../services/bill_export_service.dart';
+import '../../services/custom_invoice_service.dart';
 import '../../services/data_service.dart';
 import '../shared/widgets/product_image.dart';
 import '../shared/widgets/skeleton_loaders.dart';
@@ -25,6 +29,7 @@ class _OrderManagementScreenState
   late TabController _tabCtrl;
   bool _is3DMode = true; // Toggle for Glass Stack
   bool _isSelectionMode = false;
+  bool _showOnlyGeneratedInvoices = false;
   final Set<String> _selectedIds = {};
 
   void _clearSelection() {
@@ -59,13 +64,26 @@ class _OrderManagementScreenState
   @override
   Widget build(BuildContext context) {
     final ds = ref.watch(dataServiceProvider);
+    final invoiceService = ref.watch(customInvoiceServiceProvider);
 
-    final placed = ds.getOrdersByStatus('placed');
-    final accepted = ds.getOrdersByStatus('accepted');
-    final preparing = ds.getOrdersByStatus('preparing');
-    final dispatched = ds.getOrdersByStatus('dispatched');
-    final delivered = ds.getOrdersByStatus('delivered');
-    final cancelled = ds.getOrdersByStatus('cancelled');
+    bool isInvoiceOrder(OrderModel o) {
+      if (o.siteLocation.startsWith('Invoice #')) return true;
+      return invoiceService.getByOrderId(o.id) != null;
+    }
+
+    final rawPlaced = ds.getOrdersByStatus('placed');
+    final rawAccepted = ds.getOrdersByStatus('accepted');
+    final rawPreparing = ds.getOrdersByStatus('preparing');
+    final rawDispatched = ds.getOrdersByStatus('dispatched');
+    final rawDelivered = ds.getOrdersByStatus('delivered');
+    final rawCancelled = ds.getOrdersByStatus('cancelled');
+
+    final placed = _showOnlyGeneratedInvoices ? rawPlaced.where(isInvoiceOrder).toList() : rawPlaced;
+    final accepted = _showOnlyGeneratedInvoices ? rawAccepted.where(isInvoiceOrder).toList() : rawAccepted;
+    final preparing = _showOnlyGeneratedInvoices ? rawPreparing.where(isInvoiceOrder).toList() : rawPreparing;
+    final dispatched = _showOnlyGeneratedInvoices ? rawDispatched.where(isInvoiceOrder).toList() : rawDispatched;
+    final delivered = _showOnlyGeneratedInvoices ? rawDelivered.where(isInvoiceOrder).toList() : rawDelivered;
+    final cancelled = _showOnlyGeneratedInvoices ? rawCancelled.where(isInvoiceOrder).toList() : rawCancelled;
 
     List currentTabOrders = [];
     String currentStatus = 'placed';
@@ -162,6 +180,20 @@ class _OrderManagementScreenState
                   title: Text('Order Management',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
                   actions: [
+                    // Filter Toggle for Generated Invoices
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          _showOnlyGeneratedInvoices = !_showOnlyGeneratedInvoices;
+                          _clearSelection();
+                        });
+                      },
+                      icon: Icon(
+                        _showOnlyGeneratedInvoices ? Icons.receipt_long_rounded : Icons.receipt_long_outlined,
+                        color: _showOnlyGeneratedInvoices ? const Color(0xFFF97316) : null,
+                      ),
+                      tooltip: _showOnlyGeneratedInvoices ? 'Show All Orders' : 'Filter Generated Invoices Only',
+                    ),
                     IconButton(
                       onPressed: () {
                         setState(() {
@@ -203,15 +235,43 @@ class _OrderManagementScreenState
         : Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
-              child: TabBarView(
-                controller: _tabCtrl,
+              child: Column(
                 children: [
-                  _orderList(ds, 'placed'),
-                  _orderList(ds, 'accepted'),
-                  _orderList(ds, 'preparing'),
-                  _orderList(ds, 'dispatched'),
-                  _orderList(ds, 'delivered'),
-                  _cancelledOrderList(ds),
+                  if (_showOnlyGeneratedInvoices)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: const Color(0xFFFFF7ED),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.filter_alt_rounded, size: 16, color: Color(0xFFF97316)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Showing Generated Invoices Only',
+                              style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFFC2410C)),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => setState(() => _showOnlyGeneratedInvoices = false),
+                            child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFC2410C)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabCtrl,
+                      children: [
+                        _orderList(ds, 'placed', placed),
+                        _orderList(ds, 'accepted', accepted),
+                        _orderList(ds, 'preparing', preparing),
+                        _orderList(ds, 'dispatched', dispatched),
+                        _orderList(ds, 'delivered', delivered),
+                        _cancelledOrderList(ds, cancelled),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -219,8 +279,8 @@ class _OrderManagementScreenState
     );
   }
 
-  Widget _orderList(DataService ds, String status) {
-    final orders = ds.getOrdersByStatus(status);
+  Widget _orderList(DataService ds, String status, [List<OrderModel>? ordersOverride]) {
+    final orders = ordersOverride ?? ds.getOrdersByStatus(status);
 
     if (orders.isEmpty) {
       return RefreshIndicator(
@@ -257,7 +317,7 @@ class _OrderManagementScreenState
         getNextStatus: _getNextStatus,
         getActionLabel: _getActionLabel,
         getActionIcon: _getActionIcon,
-        getPainterName: (id) => ds.getUserById(id)?.name ?? 'Unknown',
+        getPainterName: (id) => ds.getUserById(id)?.name ?? 'Customer',
         getPainterPhone: (id) => ds.getUserById(id)?.phone ?? '',
       );
     }
@@ -270,7 +330,7 @@ class _OrderManagementScreenState
       itemBuilder: (ctx, i) {
         final order = orders[i];
         final brandColor = AppColors.getBrandPrimary(order.brand);
-
+        final linkedInvoice = ref.watch(customInvoiceServiceProvider).getByOrderId(order.id);
         final isSelected = _selectedIds.contains(order.id);
 
         return GestureDetector(
@@ -332,6 +392,98 @@ class _OrderManagementScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Generated Invoice Banner if linked
+              if (linkedInvoice != null) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (linkedInvoice.isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626)).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: (linkedInvoice.isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626)).withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: linkedInvoice.isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 16),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  linkedInvoice.invoiceNumber,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: linkedInvoice.isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: linkedInvoice.isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    linkedInvoice.isPurchase ? 'PURCHASE BILL' : 'RETURN BILL',
+                                    style: GoogleFonts.poppins(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              'Generated Invoice • ₹${linkedInvoice.totalAmount.toStringAsFixed(0)} • ${DateFormat('dd MMM yyyy').format(linkedInvoice.date)}',
+                              style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          try {
+                            final pdfBytes = await BillExportService.generateCustomInvoicePdf(linkedInvoice);
+                            await Printing.layoutPdf(
+                              onLayout: (format) async => pdfBytes,
+                              name: '${linkedInvoice.invoiceNumber}.pdf',
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error viewing invoice: $e'), backgroundColor: Colors.redAccent),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.print_rounded, size: 14),
+                        label: const Text('View Bill'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: linkedInvoice.isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               Row(
                 children: [
                   Stack(
@@ -360,10 +512,14 @@ class _OrderManagementScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(ds.getUserById(order.painterId)?.name ?? 'Unknown',
-                            style: GoogleFonts.poppins(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600)),
+                        Text(
+                          order.painterName?.isNotEmpty == true
+                              ? order.painterName!
+                              : (ds.getUserById(order.painterId)?.name ?? 'Customer'),
+                          style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600),
+                        ),
                         Text(
                           '${order.brand} • ${DateFormat('dd MMM, hh:mm a').format(order.createdAt)}',
                           style: GoogleFonts.poppins(
@@ -416,47 +572,74 @@ class _OrderManagementScreenState
               ),
               const SizedBox(height: 12),
 
-              // Item Details Summary
+              // Item Details Summary (Shows Products with Name, Size, Qty, Rate, Total, and Shade)
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade100),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ...order.items.map((item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.only(bottom: 6),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               ProductImage(
                                 imageUrl: item.productImageUrl,
                                 productId: item.productId,
                                 brand: order.brand,
-                                size: 24,
+                                size: 28,
                                 borderRadius: 6,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 10),
                               Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.productName,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '₹${item.totalPrice > 0 ? item.totalPrice.toStringAsFixed(0) : (item.unitPrice * item.quantity).toStringAsFixed(0)}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Row(
                                       children: [
                                         Text(
-                                          '${item.productName} (${item.bucketSize}) x${item.quantity}',
+                                          '${item.bucketSize} × ${item.quantity}${item.unitPrice > 0 ? ' (@ ₹${item.unitPrice.toStringAsFixed(0)})' : ''}',
                                           style: GoogleFonts.poppins(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.textPrimary),
+                                            fontSize: 11,
+                                            color: AppColors.textSecondary,
+                                          ),
                                         ),
-                                        if (item.shadeCode != null && item.shadeCode!.isNotEmpty)
+                                        if (item.shadeCode != null && item.shadeCode!.isNotEmpty) ...[
+                                          const SizedBox(width: 8),
                                           Container(
-                                            margin: const EdgeInsets.only(top: 2),
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                             decoration: BoxDecoration(
                                               color: brandColor.withValues(alpha: 0.1),
                                               borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: brandColor.withValues(alpha: 0.3)),
                                             ),
                                             child: Text(
                                               'SHADE: ${item.shadeCode}',
@@ -467,9 +650,12 @@ class _OrderManagementScreenState
                                               ),
                                             ),
                                           ),
+                                        ],
                                       ],
                                     ),
-                                  ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
                         )),
@@ -604,8 +790,8 @@ class _OrderManagementScreenState
     return s[0].toUpperCase() + s.substring(1);
   }
 
-  Widget _cancelledOrderList(DataService ds) {
-    final orders = ds.getOrdersByStatus('cancelled');
+  Widget _cancelledOrderList(DataService ds, [List<OrderModel>? ordersOverride]) {
+    final orders = ordersOverride ?? ds.getOrdersByStatus('cancelled');
 
     if (orders.isEmpty) {
       return RefreshIndicator(
@@ -701,7 +887,12 @@ class _OrderManagementScreenState
                         children: [
                           ProductImage(imageUrl: item.productImageUrl, productId: item.productId, brand: order.brand, size: 24, borderRadius: 6),
                           const SizedBox(width: 8),
-                          Expanded(child: Text('${item.productName} (${item.bucketSize}) x${item.quantity}', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500))),
+                          Expanded(
+                            child: Text(
+                              '${item.productName} (${item.bucketSize}${item.shadeCode != null && item.shadeCode!.isNotEmpty ? ' • ${item.shadeCode}' : ''}) x${item.quantity}',
+                              style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w500),
+                            ),
+                          ),
                         ],
                       ),
                     )).toList(),

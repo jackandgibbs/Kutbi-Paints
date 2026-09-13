@@ -21,6 +21,7 @@ import '../models/banner_model.dart';
 import '../models/return_model.dart';
 import 'package:uuid/uuid.dart';
 import 'notification_service.dart';
+import 'custom_invoice_service.dart';
 
 /// Centralized data service — uses Supabase for persistence.
 /// Keeps in-memory cache for fast reads, syncs writes to Supabase.
@@ -60,8 +61,9 @@ class DataService extends ChangeNotifier {
   static const _uuid = Uuid();
 
   final SupabaseClient _sb = Supabase.instance.client;
+  final Ref? _ref;
 
-  DataService() {
+  DataService([this._ref]) {
     _loadFromSupabase();
     _initMessageStream();
     _initOrdersStream();
@@ -737,8 +739,31 @@ class DataService extends ChangeNotifier {
   }
 
   List<OrderModel> getOrdersByPainter(String painterId) {
+    final user = _users.where((u) => u.id == painterId).firstOrNull;
+    final userPhoneDigits = (user?.phone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
+    final userNameLower = (user?.name ?? '').trim().toLowerCase();
+
     return _orders
-        .where((o) => o.painterId == painterId)
+        .where((o) {
+          if (o.painterId == painterId) return true;
+          // Match by phone number (last 10 digits or exact digits)
+          if (userPhoneDigits.length >= 10 && o.painterPhone != null && o.painterPhone!.isNotEmpty) {
+            final oPhoneDigits = o.painterPhone!.replaceAll(RegExp(r'[^0-9]'), '');
+            if (oPhoneDigits.length >= 10 &&
+                oPhoneDigits.substring(oPhoneDigits.length - 10) ==
+                    userPhoneDigits.substring(userPhoneDigits.length - 10)) {
+              return true;
+            }
+          }
+          // Match walkin orders created with the user's name
+          if (userNameLower.isNotEmpty &&
+              o.painterName != null &&
+              o.painterName!.trim().toLowerCase() == userNameLower &&
+              o.painterId.startsWith('walkin_')) {
+            return true;
+          }
+          return false;
+        })
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -850,11 +875,17 @@ class DataService extends ChangeNotifier {
     }
   }
 
-  /// Orders where admin has uploaded a bill OR marked as to_be_revealed — for painter's Bills tab
+  /// Orders where admin has uploaded a bill OR marked as to_be_revealed OR generated an invoice bill — for painter's Bills tab
   List<OrderModel> getBilledOrdersForPainter(String painterId) {
-    return _orders.where((o) =>
-        o.painterId == painterId && 
-        ((o.billImageUrl != null && o.billImageUrl!.isNotEmpty) || o.status == 'to_be_revealed' || o.status == 'udhaari_pending_approval')).toList()
+    final painterOrders = getOrdersByPainter(painterId);
+    return painterOrders.where((o) =>
+        (o.billImageUrl != null && o.billImageUrl!.isNotEmpty) ||
+        o.status == 'to_be_revealed' ||
+        o.status == 'udhaari_pending_approval' ||
+        o.status == 'bill_sent' ||
+        o.siteLocation.startsWith('Invoice #') ||
+        o.siteLocation == 'Admin Billing'
+    ).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
@@ -1871,6 +1902,15 @@ class DataService extends ChangeNotifier {
           await checkAndAutoRewardGoals(order.painterId);
           await evaluateMilestonesForPainter(order.painterId);
         }
+
+        // Auto-update linked invoice if exists
+        if (_ref != null) {
+          try {
+            _ref.read(customInvoiceServiceProvider).updateOrderStatusForInvoice(orderId, status);
+          } catch (e) {
+            debugPrint('Error updating linked custom invoice: $e');
+          }
+        }
       } catch (e) {
         debugPrint('Error updating order status: $e');
         throw Exception('Failed to update order status: $e');
@@ -2001,6 +2041,112 @@ class DataService extends ChangeNotifier {
         throw Exception('Failed to restore bill: $e');
       }
     }
+  }
+
+  /// Completely deletes an order and associated ledger entries from in-memory cache and Supabase
+  Future<void> deleteOrderCompletely(String orderId) async {
+    _orders.removeWhere((o) => o.id == orderId);
+    _ledger.removeWhere((e) => e.orderId == orderId);
+    notifyListeners();
+
+    try {
+      await _sb.from('orders').delete().eq('id', orderId);
+      await _sb.from('ledger').delete().eq('order_id', orderId);
+    } catch (e) {
+      debugPrint('Error hard deleting order: $e');
+    }
+  }
+
+  /// Saves or updates an order generated via the Admin Invoice / Return generator
+  Future<OrderModel> saveOrderFromAdminInvoice({
+    String? existingOrderId,
+    String? invoiceNumber,
+    required String painterId,
+    required String painterName,
+    required String painterPhone,
+    required String brand,
+    required List<OrderItemModel> items,
+    required double totalAmount,
+    required double subtotal,
+    required double discountAmount,
+    required String status,
+    required DateTime orderDate,
+  }) async {
+    final orderId = (existingOrderId != null && existingOrderId.isNotEmpty)
+        ? existingOrderId
+        : _uuid.v4();
+
+    // If painterId is empty or walkin, attempt to resolve from registered users by phone or name
+    String effectivePainterId = painterId;
+    final cleanPhone = painterPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (effectivePainterId.isEmpty || effectivePainterId.startsWith('walkin_')) {
+      if (cleanPhone.isNotEmpty) {
+        final match = _users.where((u) {
+          final uClean = u.phone.replaceAll(RegExp(r'[^0-9]'), '');
+          if (uClean.length >= 10 && cleanPhone.length >= 10) {
+            return uClean.substring(uClean.length - 10) == cleanPhone.substring(cleanPhone.length - 10);
+          }
+          return uClean.isNotEmpty && uClean == cleanPhone;
+        }).firstOrNull;
+        if (match != null) effectivePainterId = match.id;
+      }
+      if ((effectivePainterId.isEmpty || effectivePainterId.startsWith('walkin_')) && painterName.trim().isNotEmpty) {
+        final match = _users.where((u) =>
+            !u.isAdmin && u.name.trim().toLowerCase() == painterName.trim().toLowerCase()
+        ).firstOrNull;
+        if (match != null) effectivePainterId = match.id;
+      }
+    }
+
+    final order = OrderModel(
+      id: orderId,
+      painterId: effectivePainterId,
+      painterName: painterName,
+      painterPhone: painterPhone,
+      brand: brand,
+      items: items,
+      siteLocation: (invoiceNumber != null && invoiceNumber.isNotEmpty)
+          ? 'Invoice #$invoiceNumber'
+          : 'Admin Billing',
+      paymentMethod: 'udhaari',
+      totalAmount: totalAmount,
+      subtotal: subtotal,
+      discountAmount: discountAmount,
+      status: status,
+      paymentStatus: (status == 'delivered' || status == 'returned') ? 'udhaari' : 'pending',
+      createdAt: orderDate,
+      updatedAt: DateTime.now(),
+    );
+
+    final existingIndex = _orders.indexWhere((o) => o.id == orderId);
+    if (existingIndex != -1) {
+      _orders[existingIndex] = order;
+    } else {
+      _orders.insert(0, order);
+    }
+    notifyListeners();
+
+    try {
+      await _sb.from('orders').upsert(order.toJson());
+    } catch (e) {
+      if (e.toString().contains('discount_amount') ||
+          e.toString().contains('subtotal') ||
+          e.toString().contains('PGRST204')) {
+        try {
+          final fallbackJson = order.toJson()
+            ..remove('subtotal')
+            ..remove('discount_amount')
+            ..remove('discount_name');
+          await _sb.from('orders').upsert(fallbackJson);
+        } catch (innerError) {
+          debugPrint('Fallback upsert order failed: $innerError');
+        }
+      } else {
+        debugPrint('Error upserting order from admin invoice: $e');
+      }
+    }
+
+    return order;
   }
 
   /// User deletes order from painter portal
@@ -4620,5 +4766,5 @@ b.createdAt.compareTo(a.createdAt));
 
 // Riverpod provider — no longer needs SharedPreferences
 final dataServiceProvider = ChangeNotifierProvider<DataService>((ref) {
-  return DataService();
+  return DataService(ref);
 });

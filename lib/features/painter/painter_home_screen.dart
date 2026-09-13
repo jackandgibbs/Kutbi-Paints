@@ -152,8 +152,44 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
         userName: user.name,
         userRole: user.tier.toUpperCase(),
         onLogout: () async {
-          await ref.read(authProvider.notifier).logout();
-          if (context.mounted) context.go('/login');
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'Logout?',
+                style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+              content: Text(
+                'Are you sure you want to logout? Yes / No',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('No'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Yes'),
+                ),
+              ],
+            ),
+          );
+          if (confirm == true) {
+            await ref.read(authProvider.notifier).logout();
+            if (context.mounted) context.go('/login');
+          }
         },
         onRefresh: () => ref.read(dataServiceProvider).refresh(),
         body: SkeuomorphicBackground(
@@ -1884,8 +1920,44 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                     ),
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        await ref.read(authProvider.notifier).logout();
-                        if (context.mounted) context.go('/login');
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            title: Text(
+                              'Logout?',
+                              style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w700, fontSize: 18),
+                            ),
+                            content: Text(
+                              'Are you sure you want to logout? Yes / No',
+                              style: GoogleFonts.poppins(fontSize: 14),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(false),
+                                child: const Text('No'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.error,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                child: const Text('Yes'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await ref.read(authProvider.notifier).logout();
+                          if (mounted) context.go('/login');
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,

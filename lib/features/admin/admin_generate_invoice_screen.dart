@@ -10,8 +10,9 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/platform_support.dart';
 import '../../core/utils/responsive.dart';
-import '../../models/custom_invoice_model.dart';
+import '../../models/order_model.dart';
 import '../../models/product_model.dart';
+import '../../models/user_model.dart';
 import '../../services/bill_export_service.dart';
 import '../../services/custom_invoice_service.dart';
 import '../../services/data_service.dart';
@@ -27,6 +28,7 @@ class AdminGenerateInvoiceScreen extends ConsumerStatefulWidget {
 class _ItemRowController {
   final TextEditingController nameController;
   final TextEditingController sizeController;
+  final TextEditingController shadeController;
   final TextEditingController qtyController;
   final TextEditingController rateController;
   ProductModel? selectedProduct;
@@ -34,11 +36,13 @@ class _ItemRowController {
   _ItemRowController({
     String name = '',
     String size = '1L',
+    String shade = '',
     int qty = 1,
     double rate = 0.0,
     this.selectedProduct,
   })  : nameController = TextEditingController(text: name),
         sizeController = TextEditingController(text: size),
+        shadeController = TextEditingController(text: shade),
         qtyController = TextEditingController(text: qty.toString()),
         rateController = TextEditingController(
             text: rate > 0 ? rate.toStringAsFixed(0) : '');
@@ -50,6 +54,7 @@ class _ItemRowController {
   void dispose() {
     nameController.dispose();
     sizeController.dispose();
+    shadeController.dispose();
     qtyController.dispose();
     rateController.dispose();
   }
@@ -62,6 +67,8 @@ class _AdminGenerateInvoiceScreenState
 
   // Form state
   String _billType = 'purchase'; // 'purchase' or 'return'
+  String _orderStatus = 'accepted'; // 'accepted', 'preparing', 'dispatched', 'delivered'
+  String? _editingOrderId;
   String? _selectedPainterId;
   final _painterNameController = TextEditingController();
   final _painterPhoneController = TextEditingController();
@@ -79,6 +86,7 @@ class _AdminGenerateInvoiceScreenState
   String _typeFilter = 'all'; // 'all', 'purchase', 'return'
   String _sortOption = 'newest'; // 'newest', 'oldest', 'amount_high', 'amount_low'
   DateTime? _filterDate;
+  String? _selectedRecentlyGeneratedUserKey;
 
   bool _isGeneratingPdf = false;
 
@@ -119,6 +127,7 @@ class _AdminGenerateInvoiceScreenState
   void _addItemRow({
     String name = '',
     String size = '1L',
+    String shade = '',
     int qty = 1,
     double rate = 0.0,
     ProductModel? product,
@@ -126,6 +135,7 @@ class _AdminGenerateInvoiceScreenState
     final row = _ItemRowController(
       name: name,
       size: size,
+      shade: shade,
       qty: qty,
       rate: rate,
       selectedProduct: product,
@@ -146,6 +156,8 @@ class _AdminGenerateInvoiceScreenState
   void _resetForm() {
     setState(() {
       _editingInvoiceId = null;
+      _editingOrderId = null;
+      _orderStatus = 'accepted';
       _selectedPainterId = null;
       _painterNameController.clear();
       _painterPhoneController.clear();
@@ -167,6 +179,10 @@ class _AdminGenerateInvoiceScreenState
   void _loadInvoiceForEdit(CustomInvoiceModel invoice) {
     setState(() {
       _editingInvoiceId = invoice.id;
+      _editingOrderId = invoice.orderId;
+      _orderStatus = (invoice.orderStatus != null && invoice.orderStatus!.isNotEmpty)
+          ? invoice.orderStatus!
+          : 'accepted';
       _billType = invoice.billType;
       _selectedPainterId = invoice.painterId;
       _painterNameController.text = invoice.painterName;
@@ -193,6 +209,7 @@ class _AdminGenerateInvoiceScreenState
         _addItemRow(
           name: it.productName,
           size: it.bucketSize,
+          shade: it.shade ?? '',
           qty: it.quantity,
           rate: it.rate,
           product: prod,
@@ -281,6 +298,7 @@ class _AdminGenerateInvoiceScreenState
             quantity: it.quantity,
             rate: it.rate,
             amount: it.total,
+            shade: it.shadeController.text.trim().isNotEmpty ? it.shadeController.text.trim() : null,
           ),
         );
       }
@@ -301,6 +319,9 @@ class _AdminGenerateInvoiceScreenState
 
     try {
       final invoiceId = _editingInvoiceId ?? const Uuid().v4();
+      final orderId = _editingOrderId ?? const Uuid().v4();
+      final statusToSave = _billType == 'purchase' ? _orderStatus : 'returned';
+
       final invoice = CustomInvoiceModel(
         id: invoiceId,
         invoiceNumber: _invoiceNoController.text.trim().isNotEmpty
@@ -316,7 +337,77 @@ class _AdminGenerateInvoiceScreenState
         discount: _discount,
         totalAmount: _totalAmount,
         notes: _notesController.text.trim(),
+        orderId: orderId,
+        orderStatus: statusToSave,
         createdAt: DateTime.now(),
+      );
+
+      // Save or update order in DataService
+      final ds = ref.read(dataServiceProvider);
+      String painterId = _selectedPainterId ?? '';
+      final phone = _painterPhoneController.text.trim();
+      final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+      if (painterId.isEmpty) {
+        if (cleanPhone.isNotEmpty) {
+          final match = ds.users.where((p) {
+            final pClean = p.phone.replaceAll(RegExp(r'[^0-9]'), '');
+            if (pClean.length >= 10 && cleanPhone.length >= 10) {
+              return pClean.substring(pClean.length - 10) == cleanPhone.substring(cleanPhone.length - 10);
+            }
+            return pClean.isNotEmpty && pClean == cleanPhone;
+          }).firstOrNull;
+          if (match != null) painterId = match.id;
+        }
+      }
+      if (painterId.isEmpty && painterName.trim().isNotEmpty) {
+        final match = ds.users.where((p) =>
+            !p.isAdmin && p.name.trim().toLowerCase() == painterName.trim().toLowerCase()
+        ).firstOrNull;
+        if (match != null) painterId = match.id;
+      }
+      if (painterId.isEmpty) {
+        painterId = 'walkin_${painterName.replaceAll(' ', '_')}';
+      }
+
+      final orderItems = validItems.map((it) {
+        return OrderItemModel(
+          productId: it.productName,
+          productName: it.productName,
+          colorCode: it.shade ?? '',
+          colorName: it.shade ?? '',
+          colorHex: '#2563EB',
+          quantity: it.quantity,
+          bucketSize: it.bucketSize.isNotEmpty ? it.bucketSize : 'Standard',
+          unitPrice: it.rate,
+          totalPrice: it.amount,
+          shadeCode: it.shade,
+        );
+      }).toList();
+
+      String brand = 'Asian Paints';
+      final firstItemName = validItems.first.productName.toLowerCase();
+      if (firstItemName.contains('nerolac')) {
+        brand = 'Nerolac';
+      } else if (firstItemName.contains('birla')) {
+        brand = 'Birla Opus';
+      } else if (ds.getAllBrands().isNotEmpty) {
+        brand = ds.getAllBrands().first.name;
+      }
+
+      await ds.saveOrderFromAdminInvoice(
+        existingOrderId: _editingOrderId ?? orderId,
+        invoiceNumber: invoice.invoiceNumber,
+        painterId: painterId,
+        painterName: painterName,
+        painterPhone: _painterPhoneController.text.trim(),
+        brand: brand,
+        items: orderItems,
+        totalAmount: _totalAmount,
+        subtotal: _subtotal,
+        discountAmount: _discount,
+        status: statusToSave,
+        orderDate: _selectedDate,
       );
 
       // Save or update in service
@@ -384,52 +475,66 @@ class _AdminGenerateInvoiceScreenState
   Widget build(BuildContext context) {
     final isDesktop = Responsive.isDesktop(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.adminBg,
-      appBar: AppBar(
-        backgroundColor: AppColors.adminCardBg,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textSlate),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Generate Invoice',
-          style: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textSlate,
+    return PopScope(
+      canPop: _selectedRecentlyGeneratedUserKey == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectedRecentlyGeneratedUserKey != null) {
+          setState(() => _selectedRecentlyGeneratedUserKey = null);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.adminBg,
+        appBar: AppBar(
+          backgroundColor: AppColors.adminCardBg,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textSlate),
+            onPressed: () {
+              if (_selectedRecentlyGeneratedUserKey != null && _tabController.index == 1) {
+                setState(() => _selectedRecentlyGeneratedUserKey = null);
+              } else {
+                context.pop();
+              }
+            },
+          ),
+          title: Text(
+            'Generate Invoice',
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSlate,
+            ),
+          ),
+          bottom: TabBar(
+            controller: _tabController,
+            labelColor: const Color(0xFFF97316),
+            unselectedLabelColor: AppColors.textSlateLight,
+            indicatorColor: const Color(0xFFF97316),
+            indicatorWeight: 3,
+            labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
+            tabs: const [
+              Tab(
+                icon: Icon(Icons.note_add_rounded, size: 20),
+                text: 'Create Invoice',
+              ),
+              Tab(
+                icon: Icon(Icons.history_rounded, size: 20),
+                text: 'Recently Generated',
+              ),
+            ],
           ),
         ),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: const Color(0xFFF97316),
-          unselectedLabelColor: AppColors.textSlateLight,
-          indicatorColor: const Color(0xFFF97316),
-          indicatorWeight: 3,
-          labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
-          unselectedLabelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500),
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.note_add_rounded, size: 20),
-              text: 'Create Invoice',
-            ),
-            Tab(
-              icon: Icon(Icons.history_rounded, size: 20),
-              text: 'Recently Generated',
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildCreateInvoiceTab(isDesktop),
-            _buildRecentlyGeneratedTab(isDesktop),
-          ],
+        body: SafeArea(
+          bottom: false,
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildCreateInvoiceTab(isDesktop),
+              _buildRecentlyGeneratedTab(isDesktop),
+            ],
+          ),
         ),
       ),
     );
@@ -535,7 +640,7 @@ class _AdminGenerateInvoiceScreenState
                               prefixIcon: Icons.badge_outlined,
                             ),
                             hint: Text(
-                              'Choose from ${ds.painters.length} painters',
+                              'Choose from ${ds.users.where((u) => !u.isAdmin).length} registered users',
                               style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSlateLight),
                             ),
                             items: [
@@ -543,7 +648,7 @@ class _AdminGenerateInvoiceScreenState
                                 value: null,
                                 child: Text('Custom / Walk-in Customer'),
                               ),
-                              ...ds.painters.map((p) => DropdownMenuItem<String>(
+                              ...ds.users.where((u) => !u.isAdmin).map((p) => DropdownMenuItem<String>(
                                     value: p.id,
                                     child: Text(
                                       '${p.name} (${p.phone})',
@@ -557,7 +662,7 @@ class _AdminGenerateInvoiceScreenState
                                 _selectedPainterId = val;
                                 if (val != null) {
                                   try {
-                                    final p = ds.painters.firstWhere((user) => user.id == val);
+                                    final p = ds.users.firstWhere((user) => user.id == val);
                                     _painterNameController.text = p.name;
                                     _painterPhoneController.text = p.phone;
                                   } catch (_) {}
@@ -633,6 +738,39 @@ class _AdminGenerateInvoiceScreenState
                         ),
                       ],
                     ),
+                    if (_billType == 'purchase') ...[
+                      const SizedBox(height: 14),
+                      DropdownButtonFormField<String>(
+                        initialValue: _orderStatus,
+                        decoration: _inputDecoration(
+                          labelText: 'Status',
+                          prefixIcon: Icons.local_shipping_outlined,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'accepted',
+                            child: Text('Accepted'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'preparing',
+                            child: Text('Preparing'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'dispatched',
+                            child: Text('Dispatched'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'delivered',
+                            child: Text('Delivered'),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _orderStatus = val);
+                          }
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -922,6 +1060,11 @@ class _AdminGenerateInvoiceScreenState
                       item.selectedProduct = prod;
                       if (prod != null) {
                         item.nameController.text = prod.name;
+                        if (prod.colorCode.isNotEmpty) {
+                          item.shadeController.text = prod.colorCode;
+                        } else if (prod.colorName.isNotEmpty) {
+                          item.shadeController.text = prod.colorName;
+                        }
                         if (prod.bucketSizes.isNotEmpty) {
                           item.sizeController.text = prod.bucketSizes.first;
                           final price = prod.prices[prod.bucketSizes.first] ?? 0.0;
@@ -938,20 +1081,21 @@ class _AdminGenerateInvoiceScreenState
           ),
           const SizedBox(height: 10),
 
-          // Product Name (editable) & Size
+          // Product Name (editable)
+          TextFormField(
+            controller: item.nameController,
+            decoration: _inputDecoration(
+              labelText: 'Product Name *',
+              prefixIcon: Icons.format_paint_outlined,
+            ),
+            style: GoogleFonts.inter(fontSize: 14),
+          ),
+          const SizedBox(height: 10),
+
+          // Size (Left) & Shade Field (Right)
           Row(
             children: [
               Expanded(
-                flex: 3,
-                child: TextFormField(
-                  controller: item.nameController,
-                  decoration: _inputDecoration(labelText: 'Product Name *'),
-                  style: GoogleFonts.inter(fontSize: 14),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
                 child: item.selectedProduct != null && item.selectedProduct!.bucketSizes.isNotEmpty
                     ? DropdownButtonFormField<String>(
                         // ignore: deprecated_member_use
@@ -979,6 +1123,17 @@ class _AdminGenerateInvoiceScreenState
                         decoration: _inputDecoration(labelText: 'Size (e.g. 4L, 20L)'),
                         style: GoogleFonts.inter(fontSize: 14),
                       ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextFormField(
+                  controller: item.shadeController,
+                  decoration: _inputDecoration(
+                    labelText: 'Shade / Color Code',
+                    prefixIcon: Icons.palette_outlined,
+                  ),
+                  style: GoogleFonts.inter(fontSize: 14),
+                ),
               ),
             ],
           ),
@@ -1163,6 +1318,7 @@ class _AdminGenerateInvoiceScreenState
   // ===========================================================================
   Widget _buildRecentlyGeneratedTab(bool isDesktop) {
     final invoiceService = ref.watch(customInvoiceServiceProvider);
+    final ds = ref.watch(dataServiceProvider);
     final allInvoices = invoiceService.invoices;
 
     // Filter by search query
@@ -1206,6 +1362,47 @@ class _AdminGenerateInvoiceScreenState
         break;
     }
 
+    // Group filtered invoices by user
+    final Map<String, List<CustomInvoiceModel>> invoicesByUser = {};
+    for (final inv in filtered) {
+      final key = (inv.painterId != null && inv.painterId!.isNotEmpty)
+          ? inv.painterId!
+          : '${inv.painterName.trim().toLowerCase()}_${inv.painterPhone.trim()}';
+      invoicesByUser.putIfAbsent(key, () => []).add(inv);
+    }
+
+    final userList = invoicesByUser.entries.map((entry) {
+      final key = entry.key;
+      final invoices = entry.value;
+      final first = invoices.first;
+      final user = (first.painterId != null && first.painterId!.isNotEmpty)
+          ? ds.getUserById(first.painterId!)
+          : null;
+      final name = user?.name ?? first.painterName;
+      final phone = user?.phone ?? first.painterPhone;
+      final totalAmount = invoices.fold<double>(0.0, (sum, i) => sum + (i.isPurchase ? i.totalAmount : -i.totalAmount));
+      final purchaseCount = invoices.where((i) => i.isPurchase).length;
+      final returnCount = invoices.where((i) => !i.isPurchase).length;
+      final latestDate = invoices.map((i) => i.date).reduce((a, b) => b.isAfter(a) ? b : a);
+
+      return (
+        key: key,
+        user: user,
+        name: name,
+        phone: phone,
+        invoices: invoices,
+        totalAmount: totalAmount,
+        purchaseCount: purchaseCount,
+        returnCount: returnCount,
+        latestDate: latestDate,
+      );
+    }).toList();
+
+    // Check if selected user is valid
+    final selectedUserData = _selectedRecentlyGeneratedUserKey != null
+        ? userList.where((u) => u.key == _selectedRecentlyGeneratedUserKey).firstOrNull
+        : null;
+
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(
         Responsive.horizontalPadding(context),
@@ -1219,152 +1416,499 @@ class _AdminGenerateInvoiceScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Search Field
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search by Invoice No, Painter, Phone, Product...',
-                  hintStyle: GoogleFonts.inter(fontSize: 13, color: AppColors.textSlateLight),
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSlateLight),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () => _searchController.clear(),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppColors.adminCardBg,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.adminBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.adminBorder),
+              // Drill-down View: If a user is selected, show their bills!
+              if (selectedUserData != null) ...[
+                _buildUserBillsDrillDown(selectedUserData),
+              ] else ...[
+                // Search Field
+                TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search by User, Phone, Invoice No, Product...',
+                    hintStyle: GoogleFonts.inter(fontSize: 13, color: AppColors.textSlateLight),
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSlateLight),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () => _searchController.clear(),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: AppColors.adminCardBg,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.adminBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.adminBorder),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
 
-              // Filter Chips & Sort row
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    // Type Filters
-                    _filterChip('All Types', 'all', _typeFilter, (val) => setState(() => _typeFilter = val)),
-                    const SizedBox(width: 8),
-                    _filterChip('Purchases', 'purchase', _typeFilter, (val) => setState(() => _typeFilter = val)),
-                    const SizedBox(width: 8),
-                    _filterChip('Returns', 'return', _typeFilter, (val) => setState(() => _typeFilter = val)),
-                    const SizedBox(width: 14),
+                // Filter Chips & Sort row
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      // Type Filters
+                      _filterChip('All Types', 'all', _typeFilter, (val) => setState(() => _typeFilter = val)),
+                      const SizedBox(width: 8),
+                      _filterChip('Purchases', 'purchase', _typeFilter, (val) => setState(() => _typeFilter = val)),
+                      const SizedBox(width: 8),
+                      _filterChip('Returns', 'return', _typeFilter, (val) => setState(() => _typeFilter = val)),
+                      const SizedBox(width: 14),
 
-                    // Date Filter Chip
-                    ActionChip(
-                      avatar: Icon(
-                        Icons.calendar_month_rounded,
-                        size: 16,
-                        color: _filterDate != null ? Colors.white : AppColors.textSlate,
-                      ),
-                      label: Text(
-                        _filterDate != null
-                            ? DateFormat('dd MMM').format(_filterDate!)
-                            : 'Date Filter',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      // Date Filter Chip
+                      ActionChip(
+                        avatar: Icon(
+                          Icons.calendar_month_rounded,
+                          size: 16,
                           color: _filterDate != null ? Colors.white : AppColors.textSlate,
                         ),
-                      ),
-                      backgroundColor: _filterDate != null ? const Color(0xFFF97316) : AppColors.adminCardBg,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(
-                          color: _filterDate != null ? const Color(0xFFF97316) : AppColors.adminBorder,
+                        label: Text(
+                          _filterDate != null
+                              ? DateFormat('dd MMM').format(_filterDate!)
+                              : 'Date Filter',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _filterDate != null ? Colors.white : AppColors.textSlate,
+                          ),
                         ),
-                      ),
-                      onPressed: () async {
-                        if (_filterDate != null) {
-                          setState(() => _filterDate = null);
-                        } else {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime(2035),
-                          );
-                          if (picked != null) {
-                            setState(() => _filterDate = picked);
-                          }
-                        }
-                      },
-                    ),
-                    const SizedBox(width: 8),
-
-                    // Sort menu
-                    PopupMenuButton<String>(
-                      initialValue: _sortOption,
-                      onSelected: (val) => setState(() => _sortOption = val),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(value: 'newest', child: Text('Date: Newest First')),
-                        const PopupMenuItem(value: 'oldest', child: Text('Date: Oldest First')),
-                        const PopupMenuItem(value: 'amount_high', child: Text('Amount: High to Low')),
-                        const PopupMenuItem(value: 'amount_low', child: Text('Amount: Low to High')),
-                      ],
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.adminCardBg,
+                        backgroundColor: _filterDate != null ? const Color(0xFFF97316) : AppColors.adminCardBg,
+                        shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.adminBorder),
+                          side: BorderSide(
+                            color: _filterDate != null ? const Color(0xFFF97316) : AppColors.adminBorder,
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.sort_rounded, size: 16, color: AppColors.textSlate),
-                            const SizedBox(width: 6),
-                            Text(
-                              _sortOption == 'amount_high'
-                                  ? '₹ High to Low'
-                                  : _sortOption == 'amount_low'
-                                      ? '₹ Low to High'
-                                      : _sortOption == 'oldest'
-                                          ? 'Oldest'
-                                          : 'Newest',
-                              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSlate),
-                            ),
-                          ],
+                        onPressed: () async {
+                          if (_filterDate != null) {
+                            setState(() => _filterDate = null);
+                          } else {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2035),
+                            );
+                            if (picked != null) {
+                              setState(() => _filterDate = picked);
+                            }
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Sort menu
+                      PopupMenuButton<String>(
+                        initialValue: _sortOption,
+                        onSelected: (val) => setState(() => _sortOption = val),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'newest', child: Text('Date: Newest First')),
+                          const PopupMenuItem(value: 'oldest', child: Text('Date: Oldest First')),
+                          const PopupMenuItem(value: 'amount_high', child: Text('Amount: High to Low')),
+                          const PopupMenuItem(value: 'amount_low', child: Text('Amount: Low to High')),
+                        ],
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.adminCardBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.adminBorder),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.sort_rounded, size: 16, color: AppColors.textSlate),
+                              const SizedBox(width: 6),
+                              Text(
+                                _sortOption == 'amount_high'
+                                    ? '₹ High to Low'
+                                    : _sortOption == 'amount_low'
+                                        ? '₹ Low to High'
+                                        : _sortOption == 'oldest'
+                                            ? 'Oldest'
+                                            : 'Newest',
+                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSlate),
+                              ),
+                            ],
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Count Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${userList.length} ${userList.length == 1 ? 'User' : 'Users'} (${filtered.length} Bills)',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSlateLight,
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 18),
+                const SizedBox(height: 12),
 
-              // Count Header
+                // List of Users or Empty state
+                if (userList.isEmpty)
+                  _buildEmptyInvoicesState()
+                else
+                  ...userList.map((u) => _buildUserCard(u)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserBillsDrillDown(({
+    String key,
+    UserModel? user,
+    String name,
+    String phone,
+    List<CustomInvoiceModel> invoices,
+    double totalAmount,
+    int purchaseCount,
+    int returnCount,
+    DateTime latestDate,
+  }) item) {
+    final isRegistered = item.user != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Back Button
+        InkWell(
+          onTap: () => setState(() => _selectedRecentlyGeneratedUserKey = null),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.arrow_back_rounded, size: 20, color: Color(0xFFF97316)),
+                const SizedBox(width: 8),
+                Text(
+                  'Back to All Users',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFF97316),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // User Header Card
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.adminBorder),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${filtered.length} Invoices Found',
-                    style: GoogleFonts.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSlateLight,
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: isRegistered
+                        ? const Color(0xFF0284C7).withValues(alpha: 0.15)
+                        : const Color(0xFFF97316).withValues(alpha: 0.15),
+                    child: Text(
+                      item.name.isNotEmpty ? item.name[0].toUpperCase() : 'U',
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: isRegistered ? const Color(0xFF0284C7) : const Color(0xFFF97316),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                item.name,
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textSlate,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isRegistered) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE0F2FE),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'REGISTERED PAINTER',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF0284C7),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (item.phone.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.phone_outlined, size: 14, color: AppColors.textSlateLight),
+                              const SizedBox(width: 6),
+                              Text(
+                                item.phone,
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: AppColors.textSlateLight,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-
-              // List of Invoices or Empty state
-              if (filtered.isEmpty)
-                _buildEmptyInvoicesState()
-              else
-                ...filtered.map((inv) => _buildInvoiceCard(inv)),
+              const Divider(height: 24, color: AppColors.adminBorder),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildUserStat('Total Bills', '${item.invoices.length}'),
+                  Container(width: 1, height: 28, color: AppColors.adminBorder),
+                  _buildUserStat('Purchases', '${item.purchaseCount}'),
+                  Container(width: 1, height: 28, color: AppColors.adminBorder),
+                  _buildUserStat('Returns', '${item.returnCount}'),
+                  Container(width: 1, height: 28, color: AppColors.adminBorder),
+                  _buildUserStat('Net Total', '₹ ${item.totalAmount.abs().toStringAsFixed(0)}'),
+                ],
+              ),
             ],
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Section Title
+        Text(
+          'GENERATED BILLS FOR ${item.name.toUpperCase()} (${item.invoices.length})',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSlateLight,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Invoices list for this user
+        ...item.invoices.map((inv) => _buildInvoiceCard(inv)),
+      ],
+    );
+  }
+
+  Widget _buildUserStat(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textSlate,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            color: AppColors.textSlateLight,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUserCard(({
+    String key,
+    UserModel? user,
+    String name,
+    String phone,
+    List<CustomInvoiceModel> invoices,
+    double totalAmount,
+    int purchaseCount,
+    int returnCount,
+    DateTime latestDate,
+  }) item) {
+    final isRegistered = item.user != null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: _cardDecoration(),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () {
+            setState(() {
+              _selectedRecentlyGeneratedUserKey = item.key;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: isRegistered
+                      ? const Color(0xFF0284C7).withValues(alpha: 0.12)
+                      : const Color(0xFFF97316).withValues(alpha: 0.12),
+                  child: Text(
+                    item.name.isNotEmpty ? item.name[0].toUpperCase() : 'U',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: isRegistered ? const Color(0xFF0284C7) : const Color(0xFFF97316),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+
+                // Name, phone, stats
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              item.name,
+                              style: GoogleFonts.inter(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textSlate,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isRegistered) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE0F2FE),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'PAINTER',
+                                style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0284C7),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (item.phone.isNotEmpty) ...[
+                            const Icon(Icons.phone_outlined, size: 13, color: AppColors.textSlateLight),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.phone,
+                              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSlateLight),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          Text(
+                            '${item.invoices.length} ${item.invoices.length == 1 ? 'bill' : 'bills'}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFFF97316),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Total amount & chevron
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '₹ ${item.totalAmount.abs().toStringAsFixed(0)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textSlate,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('dd MMM yyyy').format(item.latestDate),
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppColors.textSlateLight,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.textSlateLight,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1440,6 +1984,23 @@ class _AdminGenerateInvoiceScreenState
     );
   }
 
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'accepted':
+        return const Color(0xFF0284C7);
+      case 'preparing':
+        return const Color(0xFFF59E0B);
+      case 'dispatched':
+        return const Color(0xFF8B5CF6);
+      case 'delivered':
+        return const Color(0xFF10B981);
+      case 'returned':
+        return const Color(0xFFEF4444);
+      default:
+        return AppColors.textSlateLight;
+    }
+  }
+
   Widget _buildInvoiceCard(CustomInvoiceModel invoice) {
     final isPurchase = invoice.isPurchase;
     final badgeColor = isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626);
@@ -1452,7 +2013,7 @@ class _AdminGenerateInvoiceScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Badges, Invoice No, Date
+          // Row 1: Badges, Order Status, Invoice No, Date
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1474,6 +2035,28 @@ class _AdminGenerateInvoiceScreenState
                       ),
                     ),
                   ),
+                  if (invoice.orderStatus != null && invoice.orderStatus!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _statusColor(invoice.orderStatus!).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _statusColor(invoice.orderStatus!).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        invoice.orderStatus!.toUpperCase(),
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: _statusColor(invoice.orderStatus!),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 10),
                   Text(
                     invoice.invoiceNumber,
@@ -1529,7 +2112,7 @@ class _AdminGenerateInvoiceScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${invoice.items.length} ${invoice.items.length == 1 ? 'item' : 'items'}: ${invoice.items.map((i) => '${i.productName} (${i.bucketSize}) x${i.quantity}').join(', ')}',
+                  '${invoice.items.length} ${invoice.items.length == 1 ? 'item' : 'items'}: ${invoice.items.map((i) => '${i.productName} (${i.bucketSize}${i.shade != null && i.shade!.isNotEmpty ? ' • ${i.shade}' : ''}) x${i.quantity}').join(', ')}',
                   style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSlateLight),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -1640,17 +2223,17 @@ class _AdminGenerateInvoiceScreenState
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(
-          'Delete Invoice?',
+          'Delete Bill?',
           style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         content: Text(
-          'Are you sure you want to delete invoice ${invoice.invoiceNumber} for ${invoice.painterName}? This action cannot be undone.',
+          'Are you sure you want to delete invoice ${invoice.invoiceNumber} for ${invoice.painterName}? Yes / No',
           style: GoogleFonts.inter(fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const Text('No'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -1659,7 +2242,7 @@ class _AdminGenerateInvoiceScreenState
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text('Delete'),
+            child: const Text('Yes'),
           ),
         ],
       ),
@@ -1667,10 +2250,13 @@ class _AdminGenerateInvoiceScreenState
 
     if (confirmed == true) {
       await ref.read(customInvoiceServiceProvider).deleteInvoice(invoice.id);
+      if (invoice.orderId != null && invoice.orderId!.isNotEmpty) {
+        await ref.read(dataServiceProvider).deleteOrderCompletely(invoice.orderId!);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Deleted invoice ${invoice.invoiceNumber}'),
+          content: Text('Deleted invoice ${invoice.invoiceNumber} and its order'),
           backgroundColor: Colors.black87,
           behavior: SnackBarBehavior.floating,
         ),

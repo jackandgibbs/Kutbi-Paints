@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 import '../../services/data_service.dart';
+import '../../services/custom_invoice_service.dart';
+import '../../services/bill_export_service.dart';
 import '../../models/order_model.dart';
 import '../shared/widgets/product_image.dart';
 
@@ -32,6 +35,7 @@ class OrderDetailScreen extends ConsumerWidget {
     final isBilled = order.status == 'billed' || order.status == 'bill_sent' || order.status == 'accepted';
     final isPaid = order.paymentStatus == 'udhaari';
     final isUdhaariRequested = order.status == 'udhaari_requested';
+    final linkedInvoice = ref.watch(customInvoiceServiceProvider).getByOrderId(order.id);
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
@@ -162,7 +166,96 @@ class OrderDetailScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // Generated Invoice Banner (if created from Generate Invoice)
+            if (order.siteLocation.startsWith('Invoice #') || linkedInvoice != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF0284C7).withValues(alpha: 0.12),
+                      const Color(0xFF0284C7).withValues(alpha: 0.04),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            order.status == 'returned' ? 'Return Bill / Credit Note' : 'Generated Purchase Bill',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0284C7),
+                            ),
+                          ),
+                          Text(
+                            order.siteLocation.startsWith('Invoice #')
+                                ? order.siteLocation
+                                : (linkedInvoice?.invoiceNumber != null
+                                    ? 'Invoice #${linkedInvoice!.invoiceNumber}'
+                                    : 'Official Store Bill'),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        try {
+                          final inv = linkedInvoice ?? CustomInvoiceModel.fromOrder(order);
+                          final pdfBytes = await BillExportService.generateCustomInvoicePdf(inv);
+                          await Printing.layoutPdf(
+                            onLayout: (format) async => pdfBytes,
+                            name: '${inv.invoiceNumber}.pdf',
+                          );
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error viewing invoice: $e'),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.print_rounded, size: 16),
+                      label: const Text('View Bill'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: order.status == 'returned' ? const Color(0xFFDC2626) : const Color(0xFF0284C7),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Deleted by user banner
             if (order.deletedByUser) ...[

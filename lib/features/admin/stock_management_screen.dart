@@ -337,10 +337,41 @@ class _ProductCardState extends State<_ProductCard> {
     ));
   }
 
-  void _deleteBase(String name) {
-    final bases = Map<String, _BaseEntry>.from(widget.bases);
-    bases.remove(name);
-    widget.onBasesChanged(bases);
+  Future<void> _deleteBase(String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete Base?',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$name"? Yes / No',
+          style: GoogleFonts.inter(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final bases = Map<String, _BaseEntry>.from(widget.bases);
+      bases.remove(name);
+      widget.onBasesChanged(bases);
+    }
   }
 
   void _addBase() {

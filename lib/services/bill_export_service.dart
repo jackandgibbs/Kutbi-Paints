@@ -569,7 +569,12 @@ class BillExportService {
                     return pw.TableRow(
                       children: [
                         _tableCell(index.toString(), font, align: pw.TextAlign.center),
-                        _tableCell(item.productName, font),
+                        _tableCell(
+                          item.shade != null && item.shade!.isNotEmpty
+                              ? '${item.productName}\nShade: ${item.shade}'
+                              : item.productName,
+                          font,
+                        ),
                         _tableCell(item.bucketSize, font, align: pw.TextAlign.center),
                         _tableCell(item.quantity.toString(), font, align: pw.TextAlign.center),
                         _tableCell('₹ ${item.rate.toStringAsFixed(0)}', font, align: pw.TextAlign.right),

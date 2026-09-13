@@ -12,6 +12,9 @@ import '../../core/utils/platform_support.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
 import '../../services/cart_service.dart';
+import '../../services/custom_invoice_service.dart';
+import '../../services/bill_export_service.dart';
+import '../../models/order_model.dart';
 import '../shared/widgets/product_image.dart';
 import '../../core/utils/responsive.dart';
 
@@ -134,6 +137,7 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
     final brandColor = AppColors.getBrandPrimary(order.brand);
     final hasBillUrl = order.billImageUrl != null && order.billImageUrl!.isNotEmpty;
     final isPendingReveal = !hasBillUrl && (order.status == 'udhaari_pending_approval' || order.status == 'to_be_revealed' || order.status == 'udhaari_no_bill');
+    final isInvoiceOrder = order.siteLocation.toString().startsWith('Invoice #') || order.siteLocation.toString() == 'Admin Billing';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -379,30 +383,51 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
             ),
           const SizedBox(height: 8),
 
-          // Site location
+          // Site location / Invoice reference
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Icon(Icons.location_on_rounded,
-                    size: 14, color: AppColors.textLight),
+                Icon(isInvoiceOrder ? Icons.receipt_long_rounded : Icons.location_on_rounded,
+                    size: 14, color: isInvoiceOrder ? const Color(0xFF0284C7) : AppColors.textLight),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    order.siteLocation,
+                    order.siteLocation.toString().isNotEmpty ? order.siteLocation.toString() : 'Direct Order',
                     style: GoogleFonts.poppins(
                       fontSize: 11,
-                      color: AppColors.textLight,
+                      fontWeight: isInvoiceOrder ? FontWeight.w600 : FontWeight.normal,
+                      color: isInvoiceOrder ? const Color(0xFF0284C7) : AppColors.textLight,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (isInvoiceOrder) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: order.status == 'returned' ? Colors.red.shade50 : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: order.status == 'returned' ? Colors.red.shade200 : Colors.blue.shade200,
+                      ),
+                    ),
+                    child: Text(
+                      order.status == 'returned' ? 'RETURN BILL' : 'PURCHASE BILL',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: order.status == 'returned' ? Colors.red.shade700 : const Color(0xFF0284C7),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(height: 12),
-          // Always show View Bill button if there's a bill URL
+          // View Bill button (uploaded image/pdf, or generated invoice pdf)
           if (hasBillUrl)
             GestureDetector(
               onTap: () => _showFullBill(order.billImageUrl!),
@@ -433,7 +458,59 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
                           ),
                         ),
                         Text(
-                          'Tap to open PDF',
+                          'Tap to open PDF / Image',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (isInvoiceOrder)
+            GestureDetector(
+              onTap: () => _viewInvoicePdf(order),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                height: 80,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: order.status == 'returned'
+                        ? Colors.red.shade300
+                        : const Color(0xFF0284C7).withValues(alpha: 0.4),
+                  ),
+                  color: order.status == 'returned'
+                      ? Colors.red.shade50.withValues(alpha: 0.5)
+                      : const Color(0xFF0284C7).withValues(alpha: 0.06),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.print_rounded,
+                      size: 32,
+                      color: order.status == 'returned' ? Colors.red.shade700 : const Color(0xFF0284C7),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          order.status == 'returned' ? 'View Return Bill (PDF)' : 'View Invoice Bill (PDF)',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: order.status == 'returned' ? Colors.red.shade700 : const Color(0xFF0284C7),
+                          ),
+                        ),
+                        Text(
+                          'Tap to preview & print PDF',
                           style: GoogleFonts.poppins(
                             fontSize: 11,
                             color: AppColors.textSecondary,
@@ -520,6 +597,62 @@ class _PainterBillsScreenState extends ConsumerState<PainterBillsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _viewInvoicePdf(dynamic order) async {
+    try {
+      final invoiceService = ref.read(customInvoiceServiceProvider);
+      CustomInvoiceModel? inv = invoiceService.getByOrderId(order.id.toString());
+      if (inv == null) {
+        if (order is OrderModel) {
+          inv = CustomInvoiceModel.fromOrder(order);
+        } else {
+          inv = CustomInvoiceModel(
+          id: order.id.toString(),
+          invoiceNumber: order.siteLocation.toString().startsWith('Invoice #')
+              ? order.siteLocation.toString().replaceFirst('Invoice #', '')
+              : 'INV-${order.id.toString().substring(0, 4).toUpperCase()}',
+          billType: order.status == 'returned' ? 'return' : 'purchase',
+          painterId: order.painterId,
+          painterName: order.painterName ?? '',
+          painterPhone: order.painterPhone ?? '',
+          date: order.createdAt ?? DateTime.now(),
+          items: (order.items as List).map((it) => CustomInvoiceItem(
+            productName: it.productName.toString(),
+            bucketSize: it.bucketSize.toString(),
+            shade: it.shadeCode?.toString(),
+            quantity: it.quantity is int ? it.quantity as int : (int.tryParse(it.quantity.toString()) ?? 1),
+            rate: (it.unitPrice is num ? it.unitPrice as num : (double.tryParse(it.unitPrice.toString()) ?? 0.0)).toDouble(),
+            amount: (it.totalPrice is num ? it.totalPrice as num : (double.tryParse(it.totalPrice.toString()) ?? 0.0)).toDouble(),
+          )).toList(),
+          subtotal: (order.subtotal is num && order.subtotal > 0)
+              ? (order.subtotal as num).toDouble()
+              : ((order.totalAmount as num?)?.toDouble() ?? 0.0) + ((order.discountAmount as num?)?.toDouble() ?? 0.0),
+          discount: (order.discountAmount as num?)?.toDouble() ?? 0.0,
+          totalAmount: (order.totalAmount as num?)?.toDouble() ?? 0.0,
+          notes: '',
+          orderId: order.id.toString(),
+          orderStatus: order.status.toString(),
+          createdAt: order.createdAt ?? DateTime.now(),
+        );
+      }
+    }
+
+      final pdfBytes = await BillExportService.generateCustomInvoicePdf(inv);
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: '${inv.invoiceNumber}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error viewing invoice bill: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   void _reorderToCart(dynamic order) {

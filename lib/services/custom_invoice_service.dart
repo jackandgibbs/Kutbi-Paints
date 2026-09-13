@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/custom_invoice_model.dart';
+export '../models/custom_invoice_model.dart';
 
 class CustomInvoiceService extends ChangeNotifier {
   static const _storageKey = 'kutbi_custom_invoices_v1';
@@ -82,6 +83,32 @@ class CustomInvoiceService extends ChangeNotifier {
       return _invoices.firstWhere((inv) => inv.id == id);
     } catch (_) {
       return null;
+    }
+  }
+
+  CustomInvoiceModel? getByOrderId(String orderId) {
+    try {
+      return _invoices.firstWhere((inv) => inv.orderId == orderId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> updateOrderStatusForInvoice(String orderId, String newStatus) async {
+    final index = _invoices.indexWhere((inv) => inv.orderId == orderId);
+    if (index != -1) {
+      _invoices[index] = _invoices[index].copyWith(orderStatus: newStatus);
+      notifyListeners();
+      await _saveToStorage();
+    }
+  }
+
+  Future<void> updateInvoiceStatus(String invoiceId, String newStatus) async {
+    final index = _invoices.indexWhere((inv) => inv.id == invoiceId);
+    if (index != -1) {
+      _invoices[index] = _invoices[index].copyWith(orderStatus: newStatus);
+      notifyListeners();
+      await _saveToStorage();
     }
   }
 }

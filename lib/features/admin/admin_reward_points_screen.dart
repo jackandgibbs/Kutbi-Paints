@@ -572,8 +572,44 @@ class _RewardConfigTabState extends ConsumerState<_RewardConfigTab> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                        onPressed: () {
-                          ds.deleteMilestone(m.id);
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: Text(
+                                'Delete Milestone?',
+                                style: GoogleFonts.poppins(
+                                    fontWeight: FontWeight.w700, fontSize: 18),
+                              ),
+                              content: Text(
+                                'Are you sure you want to delete this milestone? Yes / No',
+                                style: GoogleFonts.poppins(fontSize: 14),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(ctx).pop(false),
+                                  child: const Text('No'),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.error,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: () => Navigator.of(ctx).pop(true),
+                                  child: const Text('Yes'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            ds.deleteMilestone(m.id);
+                          }
                         },
                       )
                     ],

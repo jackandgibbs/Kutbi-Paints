@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/data_service.dart';
+import '../../services/custom_invoice_service.dart';
+import '../../services/bill_export_service.dart';
 import '../../core/utils/responsive.dart';
 
 enum _OrderListType { active, deletedOrRejected, returned }
@@ -232,6 +235,23 @@ class OrderHistoryScreen extends ConsumerWidget {
                                       color: AppColors.textLight,
                                     ),
                                   ),
+                                  if (order.siteLocation.startsWith('Invoice #'))
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        order.siteLocation,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF0284C7),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -282,13 +302,15 @@ class OrderHistoryScreen extends ConsumerWidget {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          '${item.colorCode} - ${item.colorName} (${item.bucketSize} × ${item.quantity})',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
+                                         Text(
+                                           item.productName.isNotEmpty
+                                               ? '${item.productName} (${item.bucketSize} × ${item.quantity})'
+                                               : '${item.colorCode} - ${item.colorName} (${item.bucketSize} × ${item.quantity})',
+                                           style: GoogleFonts.poppins(
+                                             fontSize: 12,
+                                             color: AppColors.textSecondary,
+                                           ),
+                                         ),
                                         if (item.shadeCode != null && item.shadeCode!.isNotEmpty)
                                           Text(
                                             'Shade: ${item.shadeCode}',
@@ -334,6 +356,29 @@ class OrderHistoryScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
+
+                        // View Invoice Bill button for invoice-linked orders
+                        if (order.siteLocation.startsWith('Invoice #')) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _viewInvoicePdf(context, ref, order),
+                              icon: const Icon(Icons.print_rounded, size: 16),
+                              label: Text(
+                                order.status == 'returned' ? 'View Return Bill (PDF)' : 'View Invoice Bill (PDF)',
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: order.status == 'returned' ? const Color(0xFFDC2626) : const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                        ],
 
                         // Reorder button for delivered orders
                         if (order.status == 'delivered' && !order.deletedByUser && !isReturned) ...[
@@ -626,5 +671,28 @@ class OrderHistoryScreen extends ConsumerWidget {
     hex = hex.replaceAll('#', '');
     if (hex.length == 6) hex = 'FF$hex';
     return Color(int.parse(hex, radix: 16));
+  }
+
+  Future<void> _viewInvoicePdf(BuildContext context, WidgetRef ref, OrderModel order) async {
+    try {
+      final invoiceService = ref.read(customInvoiceServiceProvider);
+      CustomInvoiceModel? inv = invoiceService.getByOrderId(order.id);
+      inv ??= CustomInvoiceModel.fromOrder(order);
+
+      final pdfBytes = await BillExportService.generateCustomInvoicePdf(inv);
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: '${inv.invoiceNumber}.pdf',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error viewing invoice bill: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 }

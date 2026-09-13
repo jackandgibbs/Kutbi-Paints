@@ -196,7 +196,9 @@ class _GlassOrderStackState extends State<GlassOrderStack> with SingleTickerProv
               ),
               const SizedBox(height: 4),
               Text(
-                widget.getPainterName(order.painterId),
+                (order.painterName != null && order.painterName.toString().isNotEmpty)
+                    ? order.painterName.toString()
+                    : widget.getPainterName(order.painterId),
                 style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -204,7 +206,9 @@ class _GlassOrderStackState extends State<GlassOrderStack> with SingleTickerProv
                 ),
               ),
               Text(
-                widget.getPainterPhone(order.painterId),
+                (order.painterPhone != null && order.painterPhone.toString().isNotEmpty)
+                    ? order.painterPhone.toString()
+                    : widget.getPainterPhone(order.painterId),
                 style: GoogleFonts.poppins(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -249,7 +253,7 @@ class _GlassOrderStackState extends State<GlassOrderStack> with SingleTickerProv
                                 ),
                               ),
                               Text(
-                                "${item.bucketSize} x ${item.quantity}",
+                                '${item.bucketSize} x ${item.quantity}${item.shadeCode != null && item.shadeCode.toString().isNotEmpty ? ' • Shade: ${item.shadeCode}' : ''}${item.totalPrice > 0 ? ' • ₹${item.totalPrice.toStringAsFixed(0)}' : ''}',
                                 style: GoogleFonts.poppins(
                                   fontSize: 11,
                                   color: AppColors.textSecondary,

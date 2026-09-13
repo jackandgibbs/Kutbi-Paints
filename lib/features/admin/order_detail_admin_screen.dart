@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/widgets/responsive_center.dart';
-import '../../services/data_service.dart';
 import '../../models/order_model.dart';
+import '../../services/bill_export_service.dart';
+import '../../services/custom_invoice_service.dart';
+import '../../services/data_service.dart';
 import '../shared/widgets/product_image.dart';
 import '../../core/utils/app_utils.dart';
 
@@ -94,7 +98,9 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        painter?.name ?? 'Unknown',
+                        order.painterName?.isNotEmpty == true
+                            ? order.painterName!
+                            : (painter?.name ?? 'Unknown'),
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
@@ -183,6 +189,122 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
                   ),
                 ],
               ),
+            ),
+            Builder(
+              builder: (context) {
+                final linkedInvoice = ref.watch(customInvoiceServiceProvider).getByOrderId(order.id);
+                if (linkedInvoice == null) return const SizedBox.shrink();
+                final isPurchase = linkedInvoice.isPurchase;
+                final invoiceColor = isPurchase ? const Color(0xFF0284C7) : const Color(0xFFDC2626);
+                return Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 20),
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: invoiceColor.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: invoiceColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: invoiceColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Invoice ${linkedInvoice.invoiceNumber}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: invoiceColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: invoiceColor,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        isPurchase ? 'PURCHASE' : 'RETURN',
+                                        style: GoogleFonts.poppins(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  '${DateFormat('dd MMM yyyy').format(linkedInvoice.date)} • ${linkedInvoice.items.length} items',
+                                  style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Total Amount: ₹${linkedInvoice.totalAmount.toStringAsFixed(0)}',
+                            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          ),
+                          if (linkedInvoice.discount > 0)
+                            Text(
+                              'Discount: -₹${linkedInvoice.discount.toStringAsFixed(0)}',
+                              style: GoogleFonts.poppins(fontSize: 12, color: Colors.redAccent, fontWeight: FontWeight.w500),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            try {
+                              final pdfBytes = await BillExportService.generateCustomInvoicePdf(linkedInvoice);
+                              await Printing.layoutPdf(
+                                onLayout: (format) async => pdfBytes,
+                                name: '${linkedInvoice.invoiceNumber}.pdf',
+                              );
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error generating bill PDF: $e'), backgroundColor: Colors.redAccent),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.print_rounded, size: 18),
+                          label: Text('View / Print Generated Bill (${linkedInvoice.invoiceNumber})'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: invoiceColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 24),
 
@@ -287,7 +409,6 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
             const SizedBox(height: 12),
 
             ...order.items.map((item) {
-              final color = _hexToColor(item.colorHex);
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
@@ -326,13 +447,30 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
                                 color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
-                                'SHADE: ${item.shadeCode}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primary,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (item.colorHex.isNotEmpty) ...[
+                                    Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: _hexToColor(item.colorHex),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.black26, width: 0.5),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(
+                                    'SHADE: ${item.shadeCode}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           Text(
@@ -345,13 +483,27 @@ class _OrderDetailAdminScreenState extends ConsumerState<OrderDetailAdminScreen>
                         ],
                       ),
                     ),
-                    Text(
-                      'x${item.quantity}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'x${item.quantity}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (item.totalPrice > 0)
+                          Text(
+                            '₹${item.totalPrice.toStringAsFixed(0)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.adminPrimary,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
