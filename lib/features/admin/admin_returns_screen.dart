@@ -28,6 +28,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
   String _viewMode = 'painters'; // 'painters' or 'all_requests'
   String _searchQuery = '';
   String _filterStatus = 'all';
+  String _detailFilterStatus = 'all';
 
   static const _tabs = [
     ('all', 'All'),
@@ -40,12 +41,20 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
     ('rejected', 'Rejected'),
   ];
 
+  String _getTabLabel(String key) {
+    for (final tab in _tabs) {
+      if (tab.$1 == key) return tab.$2;
+    }
+    return key;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ds = ref.watch(dataServiceProvider);
     final allReturns = ds.getAllReturnRequests();
     final counts = ds.getReturnStatusCounts();
 
+    // ── Active Painters List ──
     // Active returns are those not in a terminal state (refunded, rejected, cancelled)
     final activeReturns = allReturns.where((r) => !r.status.isTerminal).toList();
 
@@ -73,6 +82,35 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
       return bLatest.compareTo(aLatest);
     });
 
+    // ── All Requests (Grouped by Painter) ──
+    // Returns filtered by the active status tab in All Requests
+    final filteredAllReturns = _filterStatus == 'all'
+        ? allReturns
+        : allReturns.where((r) => r.status.value == _filterStatus).toList();
+
+    // Group filtered returns by painter (userId)
+    final Map<String, List<ReturnRequestModel>> allReturnsByPainter = {};
+    for (final r in filteredAllReturns) {
+      allReturnsByPainter.putIfAbsent(r.userId, () => []).add(r);
+    }
+
+    final List<({UserModel? user, String userId, List<ReturnRequestModel> requests})> allPainterDataList = [];
+    for (final entry in allReturnsByPainter.entries) {
+      final user = ds.getUserById(entry.key);
+      allPainterDataList.add((
+        user: user,
+        userId: entry.key,
+        requests: entry.value,
+      ));
+    }
+
+    // Sort painters by latest request timestamp (newest first)
+    allPainterDataList.sort((a, b) {
+      final aLatest = a.requests.map((r) => r.requestedAt).reduce((v, e) => e.isAfter(v) ? e : v);
+      final bLatest = b.requests.map((r) => r.requestedAt).reduce((v, e) => e.isAfter(v) ? e : v);
+      return bLatest.compareTo(aLatest);
+    });
+
     return PopScope(
       canPop: _selectedPainterId == null,
       onPopInvokedWithResult: (didPop, _) {
@@ -92,7 +130,14 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                 constraints: BoxConstraints(maxWidth: Responsive.contentMaxWidth(context)),
                 child: _selectedPainterId != null
                     ? _buildPainterDetailView(ds, allReturns)
-                    : _buildMainView(ds, allReturns, activeReturns, painterDataList, counts),
+                    : _buildMainView(
+                        ds,
+                        allReturns,
+                        activeReturns,
+                        painterDataList,
+                        allPainterDataList,
+                        counts,
+                      ),
               ),
             ),
           ),
@@ -107,6 +152,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
     List<ReturnRequestModel> allReturns,
     List<ReturnRequestModel> activeReturns,
     List<({UserModel? user, String userId, List<ReturnRequestModel> requests})> painterDataList,
+    List<({UserModel? user, String userId, List<ReturnRequestModel> requests})> allPainterDataList,
     Map<String, int> counts,
   ) {
     // Filter painters by search query
@@ -114,6 +160,14 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
     final filteredPainters = q.isEmpty
         ? painterDataList
         : painterDataList.where((item) {
+            final name = (item.user?.name ?? '').toLowerCase();
+            final phone = (item.user?.phone ?? '').toLowerCase();
+            return name.contains(q) || phone.contains(q);
+          }).toList();
+
+    final filteredAllPainters = q.isEmpty
+        ? allPainterDataList
+        : allPainterDataList.where((item) {
             final name = (item.user?.name ?? '').toLowerCase();
             final phone = (item.user?.phone ?? '').toLowerCase();
             return name.contains(q) || phone.contains(q);
@@ -259,7 +313,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.list_alt_rounded,
+                                Icons.receipt_long_rounded,
                                 size: 16,
                                 color: _viewMode == 'all_requests'
                                     ? AppColors.adminAccent
@@ -287,46 +341,46 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                 ),
               ),
 
-              if (_viewMode == 'painters') ...[
-                const SizedBox(height: 10),
-                // Search field for painters
-                Container(
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, size: 18, color: AppColors.textSlateLight),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          onChanged: (val) => setState(() => _searchQuery = val),
-                          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSlate),
-                          decoration: InputDecoration(
-                            hintText: 'Search painter by name or phone...',
-                            hintStyle: GoogleFonts.poppins(
-                              fontSize: 12.5,
-                              color: AppColors.textSlateLight,
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
+              const SizedBox(height: 10),
+              // Search field for painters (available in both views)
+              Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, size: 18, color: AppColors.textSlateLight),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSlate),
+                        decoration: InputDecoration(
+                          hintText: 'Search painter by name or phone...',
+                          hintStyle: GoogleFonts.poppins(
+                            fontSize: 12.5,
+                            color: AppColors.textSlateLight,
                           ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
                         ),
                       ),
-                      if (_searchQuery.isNotEmpty)
-                        GestureDetector(
-                          onTap: () => setState(() => _searchQuery = ''),
-                          child: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textSlateLight),
-                        ),
-                    ],
-                  ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => setState(() => _searchQuery = ''),
+                        child: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textSlateLight),
+                      ),
+                  ],
                 ),
-              ] else ...[
+              ),
+
+              if (_viewMode == 'all_requests') ...[
                 const SizedBox(height: 10),
                 // Filter chips for All Requests view
                 SingleChildScrollView(
@@ -372,8 +426,8 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
         // ── Body List ──
         Expanded(
           child: _viewMode == 'painters'
-              ? _buildPaintersList(filteredPainters, ds)
-              : _buildAllRequestsList(allReturns, ds),
+              ? _buildPaintersList(filteredPainters, ds, isActiveMode: true)
+              : _buildPaintersList(filteredAllPainters, ds, isActiveMode: false),
         ),
       ],
     );
@@ -382,8 +436,9 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
   // ─── Painters List View ──────────────────────────────────────────────────
   Widget _buildPaintersList(
     List<({UserModel? user, String userId, List<ReturnRequestModel> requests})> painters,
-    DataService ds,
-  ) {
+    DataService ds, {
+    required bool isActiveMode,
+  }) {
     if (painters.isEmpty) {
       return Center(
         child: Padding(
@@ -394,8 +449,8 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
               Container(
                 width: 72,
                 height: 72,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -408,7 +463,11 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
               Text(
                 _searchQuery.isNotEmpty
                     ? 'No painters found for "$_searchQuery"'
-                    : 'No Active Return Requests',
+                    : (isActiveMode
+                        ? 'No Active Return Requests'
+                        : (_filterStatus == 'all'
+                            ? 'No Return Requests'
+                            : 'No return bills in ${_getTabLabel(_filterStatus)}')),
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -420,7 +479,9 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
               Text(
                 _searchQuery.isNotEmpty
                     ? 'Try searching with another name or phone number.'
-                    : 'All painter return requests have been processed or none are active right now.',
+                    : (isActiveMode
+                        ? 'All painter return requests have been processed or none are active right now.'
+                        : 'No painters currently have return requests under this status.'),
                 style: GoogleFonts.poppins(
                   fontSize: 12.5,
                   color: AppColors.textSlateLight,
@@ -443,7 +504,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
         final user = item.user;
         final requests = item.requests;
 
-        // Calculate pending & in-transit counts for this painter
+        // Calculate pending & in-transit & completed counts for this painter
         final pendingCount = requests.where((r) => r.status == ReturnStatus.requested).length;
         final inTransitCount = requests.where((r) =>
             r.status == ReturnStatus.approved ||
@@ -451,6 +512,8 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
             r.status == ReturnStatus.pickedUp ||
             r.status == ReturnStatus.received ||
             r.status == ReturnStatus.refundProcessing).length;
+        final refundedCount = requests.where((r) => r.status == ReturnStatus.refunded).length;
+        final rejectedCount = requests.where((r) => r.status == ReturnStatus.rejected).length;
 
         // Total refund value estimated
         final totalRefund = requests.fold<double>(0.0, (sum, r) => sum + r.refundAmount);
@@ -460,7 +523,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
             HapticService.light();
             setState(() {
               _selectedPainterId = item.userId;
-              _filterStatus = 'all'; // reset status filter for painter detail
+              _detailFilterStatus = isActiveMode ? 'all' : _filterStatus;
             });
           },
           child: Container(
@@ -480,7 +543,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header row: Avatar + Name + Active Count Chip
+                // Header row: Avatar + Name + Count Chip
                 Row(
                   children: [
                     UserAvatar(
@@ -559,41 +622,45 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                         ],
                       ),
                     ),
-                    // Active badge
+                    // Badge: Active count or Total Bills badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: pendingCount > 0
-                            ? const Color(0xFFFEF3C7)
-                            : const Color(0xFFE0F2FE),
+                        color: isActiveMode
+                            ? (pendingCount > 0 ? const Color(0xFFFEF3C7) : const Color(0xFFE0F2FE))
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: pendingCount > 0
-                              ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
-                              : const Color(0xFF0EA5E9).withValues(alpha: 0.4),
+                          color: isActiveMode
+                              ? (pendingCount > 0
+                                  ? const Color(0xFFF59E0B).withValues(alpha: 0.4)
+                                  : const Color(0xFF0EA5E9).withValues(alpha: 0.4))
+                              : const Color(0xFFCBD5E1),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            pendingCount > 0
-                                ? Icons.pending_actions_rounded
-                                : Icons.sync_rounded,
+                            isActiveMode
+                                ? (pendingCount > 0 ? Icons.pending_actions_rounded : Icons.sync_rounded)
+                                : Icons.receipt_long_rounded,
                             size: 13,
-                            color: pendingCount > 0
-                                ? const Color(0xFFB45309)
-                                : const Color(0xFF0369A1),
+                            color: isActiveMode
+                                ? (pendingCount > 0 ? const Color(0xFFB45309) : const Color(0xFF0369A1))
+                                : AppColors.textSlate,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${requests.length} Active',
+                            isActiveMode
+                                ? '${requests.length} Active'
+                                : '${requests.length} ${requests.length == 1 ? "Bill" : "Bills"}',
                             style: GoogleFonts.poppins(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w700,
-                              color: pendingCount > 0
-                                  ? const Color(0xFFB45309)
-                                  : const Color(0xFF0369A1),
+                              color: isActiveMode
+                                  ? (pendingCount > 0 ? const Color(0xFFB45309) : const Color(0xFF0369A1))
+                                  : AppColors.textSlate,
                             ),
                           ),
                         ],
@@ -625,10 +692,20 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                               label: '$inTransitCount Processing',
                               color: AppColors.info,
                             ),
+                          if (!isActiveMode && refundedCount > 0)
+                            _miniStatusPill(
+                              label: '$refundedCount Refunded',
+                              color: AppColors.success,
+                            ),
+                          if (!isActiveMode && rejectedCount > 0)
+                            _miniStatusPill(
+                              label: '$rejectedCount Rejected',
+                              color: AppColors.error,
+                            ),
                           if (totalRefund > 0)
                             _miniStatusPill(
                               label: '₹${totalRefund.toStringAsFixed(0)}',
-                              color: AppColors.success,
+                              color: const Color(0xFF059669),
                             ),
                         ],
                       ),
@@ -639,7 +716,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'View Returns',
+                          'View Bills',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -687,10 +764,10 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
     final painter = ds.getUserById(_selectedPainterId!);
     final painterReturns = allReturns.where((r) => r.userId == _selectedPainterId).toList();
 
-    // Filter by selected tab
-    final filtered = _filterStatus == 'all'
+    // Filter by selected tab in detail view
+    final filtered = _detailFilterStatus == 'all'
         ? painterReturns
-        : painterReturns.where((r) => r.status.value == _filterStatus).toList();
+        : painterReturns.where((r) => r.status.value == _detailFilterStatus).toList();
 
     return Column(
       children: [
@@ -719,7 +796,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      painter?.name ?? 'Painter Returns',
+                      painter?.name ?? 'Painter Bills',
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -728,7 +805,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      '${painter?.phone ?? ''} • ${painterReturns.length} Return Request${painterReturns.length == 1 ? '' : 's'}',
+                      '${painter?.phone ?? ''} • ${painterReturns.length} Return Bill${painterReturns.length == 1 ? '' : 's'}',
                       style: GoogleFonts.poppins(
                         fontSize: 11.5,
                         color: AppColors.textSlateLight,
@@ -760,7 +837,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                 final count = tabKey == 'all'
                     ? painterReturns.length
                     : painterReturns.where((r) => r.status.value == tabKey).length;
-                final selected = _filterStatus == tabKey;
+                final selected = _detailFilterStatus == tabKey;
 
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -774,7 +851,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                       ),
                     ),
                     selected: selected,
-                    onSelected: (_) => setState(() => _filterStatus = tabKey),
+                    onSelected: (_) => setState(() => _detailFilterStatus = tabKey),
                     selectedColor: AppColors.adminAccent,
                     backgroundColor: Colors.transparent,
                     side: BorderSide(
@@ -801,7 +878,7 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                         Icon(Icons.assignment_return_outlined, size: 56, color: Colors.grey.shade300),
                         const SizedBox(height: 12),
                         Text(
-                          'No returns in this status',
+                          'No return bills in this status',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -826,49 +903,6 @@ class _AdminReturnsScreenState extends ConsumerState<AdminReturnsScreen> {
                 ),
         ),
       ],
-    );
-  }
-
-  // ─── All Requests Flat List View ─────────────────────────────────────────
-  Widget _buildAllRequestsList(List<ReturnRequestModel> allReturns, DataService ds) {
-    final filtered = _filterStatus == 'all'
-        ? allReturns
-        : allReturns.where((r) => r.status.value == _filterStatus).toList();
-
-    if (filtered.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: Responsive.isDesktop(context) ? 0 : 100),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.assignment_return_outlined, size: 64, color: Colors.grey.shade300),
-              const SizedBox(height: 16),
-              Text(
-                _filterStatus == 'all' ? 'No return requests' : 'No returns in this status',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSlateLight,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, Responsive.isDesktop(context) ? 24.0 : 120.0),
-      itemCount: filtered.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
-      itemBuilder: (ctx, i) {
-        final ret = filtered[i];
-        return _AdminReturnCard(
-          returnRequest: ret,
-          ds: ds,
-        );
-      },
     );
   }
 }
@@ -995,6 +1029,15 @@ class _AdminReturnCard extends StatelessWidget {
                   ),
                 ),
                 _AdminStatusBadge(status: returnRequest.status, color: statusColor),
+                const SizedBox(width: 6),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Colors.red),
+                  tooltip: 'Delete Return Bill',
+                  onPressed: () => _confirmDelete(context),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -1052,10 +1095,102 @@ class _AdminReturnCard extends StatelessWidget {
                   ),
               ],
             ),
+            const Divider(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 15, color: Colors.red),
+                  label: Text(
+                    'Delete Bill',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.red.shade300),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    HapticService.light();
+                    context.push('/admin/return-detail/${returnRequest.id}');
+                  },
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.adminAccent),
+                  label: Text(
+                    'View Details',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.adminAccent,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.red.shade600),
+            const SizedBox(width: 8),
+            Text('Delete Return Bill', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete return request #${returnRequest.displayId}? This action cannot be undone.',
+          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSlateLight),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSlateLight)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Delete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ds.deleteReturnRequest(returnRequest.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Return bill #${returnRequest.displayId} deleted'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
   }
 }
 

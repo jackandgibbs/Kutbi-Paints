@@ -727,6 +727,9 @@ class DataService extends ChangeNotifier {
   List<OrderModel> getAllOrders() => List.from(_orders.where((o) => !o.deletedByAdmin))
     ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+  List<OrderModel> getAllOrdersWithDeleted() => List.from(_orders)
+    ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
   /// Returns only confirmed orders (placed and beyond) for admin Orders tab
   List<OrderModel> getConfirmedOrders() {
     return _orders.where((o) => o.isConfirmed).toList()
@@ -1929,8 +1932,8 @@ class DataService extends ChangeNotifier {
   Future<void> deleteOrder(String orderId) async {
     final i = _orders.indexWhere((o) => o.id == orderId);
     if (i != -1) {
-      // 1. Mark as deleted in memory
-      _orders[i] = _orders[i].copyWith(deletedByAdmin: true, status: 'deleted');
+      // 1. Mark as deleted in memory for admin (keep bill & status intact for user)
+      _orders[i] = _orders[i].copyWith(deletedByAdmin: true);
       
       // 2. Remove associated ledger entries from in-memory cache
       _ledger.removeWhere((e) => e.orderId == orderId);
@@ -1938,11 +1941,9 @@ class DataService extends ChangeNotifier {
       notifyListeners();
 
       try {
-        // 3. Soft delete in Supabase - mark as deleted and clear bill
+        // 3. Soft delete in Supabase for admin - do NOT clear bill_image_url so user can still see it
         await _sb.from('orders').update({
           'deleted_by_admin': true,
-          'status': 'deleted',
-          'bill_image_url': null,
         }).eq('id', orderId);
         
         // 4. Delete from Supabase ledger table (if any)
@@ -1957,22 +1958,20 @@ class DataService extends ChangeNotifier {
   Future<void> bulkDeleteOrders(List<String> orderIds) async {
     if (orderIds.isEmpty) return;
 
-    // 1. Mark as deleted in memory
+    // 1. Mark as deleted in memory for admin
     for (final id in orderIds) {
       final i = _orders.indexWhere((o) => o.id == id);
       if (i != -1) {
-        _orders[i] = _orders[i].copyWith(deletedByAdmin: true, status: 'deleted');
+        _orders[i] = _orders[i].copyWith(deletedByAdmin: true);
       }
       _ledger.removeWhere((e) => e.orderId == id);
     }
     notifyListeners();
 
     try {
-      // 2. Soft delete in Supabase
+      // 2. Soft delete in Supabase for admin
       await _sb.from('orders').update({
         'deleted_by_admin': true,
-        'status': 'deleted',
-        'bill_image_url': null,
       }).inFilter('id', orderIds);
       await _sb.from('ledger').delete().inFilter('order_id', orderIds);
     } catch (e) {
@@ -1980,6 +1979,64 @@ class DataService extends ChangeNotifier {
       throw Exception('Failed to bulk delete orders: $e');
     }
   }
+
+  /// Delete generated bill by admin (hides in admin portal, preserves for user)
+  Future<void> deleteGeneratedBill(String orderId) async {
+    await deleteOrder(orderId);
+  }
+
+  /// Restore generated bill by admin
+  Future<void> restoreGeneratedBill(String orderId) async {
+    final i = _orders.indexWhere((o) => o.id == orderId);
+    if (i != -1) {
+      _orders[i] = _orders[i].copyWith(deletedByAdmin: false);
+      notifyListeners();
+
+      try {
+        await _sb.from('orders').update({
+          'deleted_by_admin': false,
+        }).eq('id', orderId);
+      } catch (e) {
+        debugPrint('Error restoring generated bill: $e');
+        throw Exception('Failed to restore bill: $e');
+      }
+    }
+  }
+
+  /// User deletes order from painter portal
+  Future<void> deleteOrderByUser(String orderId) async {
+    final i = _orders.indexWhere((o) => o.id == orderId);
+    if (i != -1) {
+      _orders[i] = _orders[i].copyWith(deletedByUser: true);
+      notifyListeners();
+
+      try {
+        await _sb.from('orders').update({
+          'deleted_by_user': true,
+        }).eq('id', orderId);
+      } catch (e) {
+        debugPrint('Error updating deleted_by_user in Supabase: $e');
+      }
+    }
+  }
+
+  /// User restores order in painter portal
+  Future<void> restoreOrderByUser(String orderId) async {
+    final i = _orders.indexWhere((o) => o.id == orderId);
+    if (i != -1) {
+      _orders[i] = _orders[i].copyWith(deletedByUser: false);
+      notifyListeners();
+
+      try {
+        await _sb.from('orders').update({
+          'deleted_by_user': false,
+        }).eq('id', orderId);
+      } catch (e) {
+        debugPrint('Error restoring deleted_by_user in Supabase: $e');
+      }
+    }
+  }
+
 
   // ─── COMMISSION ────────────────────────────────────────────────
 
@@ -4180,6 +4237,57 @@ b.createdAt.compareTo(a.createdAt));
     } catch (e) {
       debugPrint('Error cancelling return request: $e');
       rethrow;
+    }
+  }
+
+  // ── Admin: Delete Return Request ──────────────────────────────────────────
+
+  Future<void> deleteReturnRequest(String returnId) async {
+    final idx = _returnRequests.indexWhere((r) => r.id == returnId);
+    String? orderId;
+    if (idx != -1) {
+      orderId = _returnRequests[idx].orderId;
+      _returnRequests.removeAt(idx);
+      notifyListeners();
+    }
+
+    try {
+      try {
+        await _sb.from('return_request_items').delete().eq('return_request_id', returnId);
+      } catch (_) {}
+      await _sb.from('return_requests').delete().eq('id', returnId);
+    } catch (e) {
+      debugPrint('Error deleting return request from Supabase: $e');
+    }
+
+    // If order was marked as returned and there are no other return requests for this order,
+    // restore the order status to 'delivered'
+    if (orderId != null && orderId.isNotEmpty) {
+      final remainingReturns = _returnRequests.where((r) => r.orderId == orderId).toList();
+      if (remainingReturns.isEmpty) {
+        final orderIdx = _orders.indexWhere((o) => o.id == orderId);
+        if (orderIdx != -1 && _orders[orderIdx].status == 'returned') {
+          final currentOrder = _orders[orderIdx];
+          final restoredOrder = currentOrder.copyWith(
+            status: 'delivered',
+            paymentStatus: currentOrder.paymentStatus == 'returned'
+                ? (currentOrder.paymentMethod == 'udhaari' ? 'udhaari' : 'paid')
+                : currentOrder.paymentStatus,
+            updatedAt: DateTime.now(),
+          );
+          _orders[orderIdx] = restoredOrder;
+          notifyListeners();
+          try {
+            await _sb.from('orders').update({
+              'status': 'delivered',
+              'payment_status': restoredOrder.paymentStatus,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', orderId);
+          } catch (e) {
+            debugPrint('Error reverting order status after return delete: $e');
+          }
+        }
+      }
     }
   }
 

@@ -108,6 +108,7 @@ class OrderModel {
   final double udhaariInterestAmount;
   final bool refundCompleted;
   final bool deletedByAdmin;
+  final bool deletedByUser;
   final bool hideAmount; // If true, painter sees '--' instead of amount
   final double commission; // Optional painter commission set by admin at billing time
   final double subtotal; // Original amount before discount
@@ -137,6 +138,7 @@ class OrderModel {
     this.udhaariInterestAmount = 0.0,
     this.refundCompleted = false,
     this.deletedByAdmin = false,
+    this.deletedByUser = false,
     this.hideAmount = false,
     this.commission = 0.0,
     this.subtotal = 0.0,
@@ -171,6 +173,7 @@ class OrderModel {
       udhaariInterestAmount: (json['udhaari_interest_amount'] ?? 0).toDouble(),
       refundCompleted: json['refund_completed'] ?? false,
       deletedByAdmin: json['deleted_by_admin'] ?? false,
+      deletedByUser: json['deleted_by_user'] ?? false,
       hideAmount: json['hide_amount'] ?? false,
       commission: (json['commission'] ?? 0).toDouble(),
       subtotal: (json['subtotal'] ?? 0).toDouble(),
@@ -203,6 +206,7 @@ class OrderModel {
       'udhaari_interest_amount': udhaariInterestAmount,
       'refund_completed': refundCompleted,
       'deleted_by_admin': deletedByAdmin,
+      'deleted_by_user': deletedByUser,
       'hide_amount': hideAmount,
       if (commission != 0.0) 'commission': commission,
       'subtotal': subtotal,
@@ -234,6 +238,7 @@ class OrderModel {
     double? udhaariInterestAmount,
     bool? refundCompleted,
     bool? deletedByAdmin,
+    bool? deletedByUser,
     bool? hideAmount,
     double? commission,
     double? subtotal,
@@ -263,6 +268,7 @@ class OrderModel {
       udhaariInterestAmount: udhaariInterestAmount ?? this.udhaariInterestAmount,
       refundCompleted: refundCompleted ?? this.refundCompleted,
       deletedByAdmin: deletedByAdmin ?? this.deletedByAdmin,
+      deletedByUser: deletedByUser ?? this.deletedByUser,
       hideAmount: hideAmount ?? this.hideAmount,
       commission: commission ?? this.commission,
       subtotal: subtotal ?? this.subtotal,
@@ -292,9 +298,11 @@ class OrderModel {
   /// Whether the order is returned or return was approved
   bool get isReturned => status == 'returned' || paymentStatus == 'returned';
 
-  /// Whether the order was rejected by admin (cancelled or deleted).
-  bool get isRejected =>
-      deletedByAdmin || status == 'cancelled' || status == 'deleted';
+  /// Whether the order was rejected or cancelled
+  bool get isRejected => status == 'cancelled' || status == 'rejected';
+
+  /// Whether the order was deleted (by user or admin)
+  bool get isDeleted => deletedByUser || deletedByAdmin || status == 'deleted';
 
   /// Status text shown to painters; rejected orders read as 'rejected', returned read as 'returned'.
   String get displayStatus => isRejected ? 'rejected' : (isReturned ? 'returned' : status);

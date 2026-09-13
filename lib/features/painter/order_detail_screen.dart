@@ -54,6 +54,25 @@ class OrderDetailScreen extends ConsumerWidget {
             tooltip: 'Order Notes',
             onPressed: () => context.push('/order/${order.id}/chat'),
           ),
+          if (!order.deletedByUser && !order.deletedByAdmin && order.status != 'deleted')
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+              tooltip: 'Delete Order',
+              onPressed: () => _showDeleteConfirmation(context, ref, order.id),
+            )
+          else if (order.deletedByUser)
+            IconButton(
+              icon: const Icon(Icons.restore_rounded, color: AppColors.primary),
+              tooltip: 'Restore Order',
+              onPressed: () async {
+                await ds.restoreOrderByUser(order.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Order restored to active list')),
+                  );
+                }
+              },
+            ),
           const SizedBox(width: 8),
         ],
       ),
@@ -145,8 +164,69 @@ class OrderDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
+            // Deleted by user banner
+            if (order.deletedByUser) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.delete_outline_rounded, color: Colors.amber.shade800, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Order Deleted',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                          Text(
+                            'You moved this order to Deleted / Rejected. You can restore it anytime.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await ds.restoreOrderByUser(order.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Order restored to active list')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.restore_rounded, size: 16),
+                      label: Text('Restore', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Deleted by admin banner
-            if (order.deletedByAdmin) ...[
+            if ((order.deletedByAdmin || order.status == 'deleted') && !order.deletedByUser) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
@@ -155,54 +235,72 @@ class OrderDetailScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                 ),
-                child: Column(
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Order Deleted',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.error,
-                                ),
-                              ),
-                              Text(
-                                'This order was deleted by admin. Bill has been removed.',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppColors.error.withValues(alpha: 0.8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.push(
-                            '/painter/order/${Uri.encodeComponent(order.brand)}?reorderOrderId=${order.id}'),
-                        icon: const Icon(Icons.replay_rounded, size: 18),
-                        label: Text('Reorder This Order',
+                    const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Order Deleted',
                             style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600, fontSize: 13)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: brandColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error,
+                            ),
                           ),
-                        ),
+                          Text(
+                            'This order was deleted by admin.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.error.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Rejected / Cancelled by admin banner
+            if (order.isRejected && !order.deletedByUser && !order.deletedByAdmin && order.status != 'deleted') ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cancel_outlined, color: AppColors.error, size: 22),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Order Cancelled / Rejected',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.error,
+                            ),
+                          ),
+                          Text(
+                            'This order was cancelled or rejected by admin.',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: AppColors.error.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -423,7 +521,6 @@ class OrderDetailScreen extends ConsumerWidget {
             const SizedBox(height: 12),
 
             ...order.items.map((item) {
-              final color = _hexToColor(item.colorHex);
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
@@ -497,20 +594,21 @@ class OrderDetailScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             // Delete Button
-            if (order.status == 'pending_bill')
+            // Delete Order Button for active orders
+            if (!order.deletedByUser && !order.deletedByAdmin && order.status != 'deleted')
               Padding(
-                padding: const EdgeInsets.only(bottom: 40),
+                padding: const EdgeInsets.only(bottom: 20),
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () => _showDeleteConfirmation(context, ref, order.id),
                     icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
                     label: Text(
-                      'Cancel Order',
+                      'Delete Order',
                       style: GoogleFonts.poppins(color: Colors.red, fontWeight: FontWeight.w600),
                     ),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       side: const BorderSide(color: Colors.red),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -581,8 +679,8 @@ class OrderDetailScreen extends ConsumerWidget {
       );
     }
 
-    // If order is deleted, show cancelled status
-    if (order.deletedByAdmin) {
+    // If order is rejected or cancelled, show cancelled status
+    if (order.isRejected) {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -684,8 +782,11 @@ class OrderDetailScreen extends ConsumerWidget {
     if (currentIdx == -1) {
       if (order.status == 'bill_sent' || order.status == 'billed' || order.status == 'udhaari_requested') {
         currentIdx = 0;
-      } else if (order.status == 'placed' || order.status == 'udhaari_pending_approval') currentIdx = 1; // 'placed'/'udhaari_pending_approval' maps to 'accepted'
-      else if (order.isConfirmed) currentIdx = 1;
+      } else if (order.status == 'placed' || order.status == 'udhaari_pending_approval') {
+        currentIdx = 1; // 'placed'/'udhaari_pending_approval' maps to 'accepted'
+      } else if (order.isConfirmed) {
+        currentIdx = 1;
+      }
     }
 
     return Container(
@@ -800,27 +901,44 @@ class OrderDetailScreen extends ConsumerWidget {
 
   // Removed legacy payment confirmation methods
 
-  Color _hexToColor(String hex) {
-    hex = hex.replaceAll('#', '');
-    if (hex.length == 6) hex = 'FF$hex';
-    return Color(int.parse(hex, radix: 16));
-  }
-
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref, String orderId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Cancel Order', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        content: Text('Are you sure you want to cancel this order?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.red.shade600),
+            const SizedBox(width: 8),
+            Text('Delete Order', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete this order? It will be moved to the Deleted / Rejected tab and can be restored at any time.',
+          style: GoogleFonts.poppins(fontSize: 13),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('No')),
           TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
             onPressed: () async {
               Navigator.pop(context);
-              await ref.read(dataServiceProvider).deleteOrder(orderId);
-              if (context.mounted) context.pop();
+              await ref.read(dataServiceProvider).deleteOrderByUser(orderId);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Order moved to Deleted / Rejected')),
+                );
+                context.pop();
+              }
             }, 
-            child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red))
+            child: const Text('Yes, Delete', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),

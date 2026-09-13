@@ -134,7 +134,7 @@ class _GeneratedBillsScreenState extends ConsumerState<GeneratedBillsScreen> wit
   }
 
   Widget _buildPaintersList(DataService ds, {required bool showDeleted}) {
-    final allOrders = ds.getAllOrders();
+    final allOrders = ds.getAllOrdersWithDeleted();
     final painterOrdersMap = <String, List<OrderModel>>{};
     
     for (final order in allOrders) {
@@ -248,9 +248,10 @@ class _GeneratedBillsScreenState extends ConsumerState<GeneratedBillsScreen> wit
   }
 
   Widget _buildPainterOrders(DataService ds, String painterId) {
+    final showDeleted = _tabCtrl.index == 1;
     final painter = ds.getUserById(painterId);
     final allOrders = ds.getOrdersByPainter(painterId);
-    final orders = allOrders.where((o) => !o.deletedByAdmin).toList();
+    final orders = allOrders.where((o) => showDeleted ? o.deletedByAdmin : !o.deletedByAdmin).toList();
 
     return Column(
       children: [
@@ -274,7 +275,7 @@ class _GeneratedBillsScreenState extends ConsumerState<GeneratedBillsScreen> wit
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w700, fontSize: 16),
               ),
               Text(
-                '${orders.length} orders (excluding deleted)',
+                '${orders.length} orders ${showDeleted ? "(deleted)" : "(accepted)"}',
                 style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
@@ -309,6 +310,71 @@ class _GeneratedBillsScreenState extends ConsumerState<GeneratedBillsScreen> wit
 class _OrderCard extends ConsumerWidget {
   final OrderModel order;
   const _OrderCard({required this.order});
+
+  void _confirmDeleteBill(BuildContext context, WidgetRef ref, OrderModel order) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('Delete Generated Bill?', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+        content: Text(
+          'This generated bill will be removed from the admin portal.\n\nNote: It will NOT be deleted from the user\'s portal.',
+          style: GoogleFonts.poppins(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.poppins()),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(dataServiceProvider).deleteGeneratedBill(order.id);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Generated bill deleted from admin portal (kept in user portal)'),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting bill: $e'), backgroundColor: AppColors.error),
+                  );
+                }
+              }
+            },
+            child: Text('Delete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _restoreBill(BuildContext context, WidgetRef ref, OrderModel order) async {
+    try {
+      await ref.read(dataServiceProvider).restoreGeneratedBill(order.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bill restored to admin portal'), backgroundColor: AppColors.success),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error restoring bill: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -364,23 +430,59 @@ class _OrderCard extends ConsumerWidget {
               '${order.items.length} items • ${order.status.toUpperCase()}',
               style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textSecondary),
             ),
-            if (order.billImageUrl != null && order.billImageUrl!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _viewBill(context, order.billImageUrl!),
-                  icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                  label: Text('View PDF', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: brandColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (order.billImageUrl != null && order.billImageUrl!.isNotEmpty)
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _viewBill(context, order.billImageUrl!),
+                      icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+                      label: Text('View PDF', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: brandColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ],
+                if (order.billImageUrl != null && order.billImageUrl!.isNotEmpty)
+                  const SizedBox(width: 10),
+                if (!order.deletedByAdmin)
+                  ElevatedButton.icon(
+                    onPressed: () => _confirmDeleteBill(context, ref, order),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    label: Text('Delete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFEE2E2),
+                      foregroundColor: AppColors.error,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
+                  )
+                else
+                  ElevatedButton.icon(
+                    onPressed: () => _restoreBill(context, ref, order),
+                    icon: const Icon(Icons.restore_rounded, size: 18),
+                    label: Text('Restore', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFDCFCE7),
+                      foregroundColor: const Color(0xFF16A34A),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(color: Color(0xFF86EFAC)),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

@@ -98,6 +98,14 @@ class _ReturnDetailAdminScreenState
             }
           },
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+            tooltip: 'Delete Return Bill',
+            onPressed: () => _confirmDelete(context, ds, returnRequest),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: ResponsiveCenter(
         maxWidth: Responsive.contentMaxWidth(context),
@@ -812,6 +820,54 @@ class _ReturnDetailAdminScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, DataService ds, ReturnRequestModel returnRequest) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.red.shade600),
+            const SizedBox(width: 8),
+            Text('Delete Return Bill', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete return request #${returnRequest.displayId}? This action cannot be undone.',
+          style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textSlateLight),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: GoogleFonts.poppins(color: AppColors.textSlateLight)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Delete', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ds.deleteReturnRequest(returnRequest.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Return bill #${returnRequest.displayId} deleted'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+        context.pop();
+      }
+    }
   }
 }
 

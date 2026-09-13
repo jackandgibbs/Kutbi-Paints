@@ -1045,11 +1045,28 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
     if (user == null) return const SizedBox.shrink();
     final orders = ds.getOrdersByPainter(user.id);
     final billedOrders = ds.getBilledOrdersForPainter(user.id);
+    bool isOrderDeleted(dynamic o) => o.deletedByUser == true || o.deletedByAdmin == true || o.status == 'deleted';
+    bool isOrderReturned(dynamic o) => !isOrderDeleted(o) && (o.isReturned == true || ds.hasApprovedReturnForOrder(o.id) || o.status == 'returned');
+    bool isOrderDeletedOrRejected(dynamic o) => isOrderDeleted(o) || o.isRejected == true;
+
+    const allowedActiveStatuses = {'accepted', 'preparing', 'dispatched', 'delivered'};
+    final activeOrders = orders.where((o) =>
+        !isOrderDeleted(o) &&
+        o.isRejected != true &&
+        !isOrderReturned(o) &&
+        allowedActiveStatuses.contains(o.status)
+    ).toList();
+    final deletedOrRejected = orders.where((o) =>
+        isOrderDeletedOrRejected(o)
+    ).toList();
+    final returnedOrders = orders.where((o) =>
+        isOrderReturned(o)
+    ).toList();
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       appBar: AppBar(
-        title: Text('My Orders',
+        title: Text('Orders & Bills',
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         automaticallyImplyLeading: false,
       ),
@@ -1064,6 +1081,102 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                 children: [
+                  // Primary "My Orders" Hero Card
+                  GestureDetector(
+                    onTap: () => context.push('/painter/orders'),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                          child: Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFF1D4ED8),
+                                  Color(0xFF3B82F6),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF1D4ED8).withValues(alpha: 0.35),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Icon(Icons.inventory_2_rounded,
+                                      color: Colors.white, size: 28),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'My Orders',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${activeOrders.length} active • View in-progress, deleted & returned',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: Colors.white.withValues(alpha: 0.85),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${activeOrders.length}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF1D4ED8),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward_ios_rounded,
+                                    color: Colors.white70, size: 16),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
                   // Bills shortcut — Glassmorphism
                   GestureDetector(
                     onTap: () => context.push('/painter/bills'),
@@ -1279,131 +1392,178 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                     },
                   ),
 
-                  // Deleted Orders shortcut
-                  Builder(
-                    builder: (context) {
-                      final deletedOrders = orders.where((o) => o.deletedByAdmin).toList();
-
-                      return GestureDetector(
-                        onTap: () => context.push('/painter/orders?tab=deleted'),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      const Color(0xFFEF4444).withValues(alpha: 0.75),
-                                      const Color(0xFFDC2626).withValues(alpha: 0.55),
+                  // Quick shortcuts row for Deleted & Returned orders
+                  Row(
+                    children: [
+                      // Deleted & Rejected button
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => context.push('/painter/orders?tab=deleted'),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade200),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.delete_outline_rounded,
+                                      color: Color(0xFFEF4444), size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Deleted',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${deletedOrRejected.length} orders',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: AppColors.textLight,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.25),
-                                    width: 1.5,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFEF4444).withValues(alpha: 0.3),
-                                      blurRadius: 16,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
                                 ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: const Icon(Icons.delete_outline_rounded,
-                                          color: Colors.white, size: 24),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Deleted Orders',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          Text(
-                                            deletedOrders.isEmpty
-                                                ? 'No deleted orders'
-                                                : '${deletedOrders.length} order${deletedOrders.length > 1 ? 's' : ''} deleted by admin',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (deletedOrders.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          '${deletedOrders.length}',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFFEF4444),
-                                          ),
-                                        ),
-                                      ),
-                                    const SizedBox(width: 6),
-                                    const Icon(Icons.arrow_forward_ios_rounded,
-                                        color: Colors.white70, size: 16),
-                                  ],
-                                ),
-                              ),
+                              ],
                             ),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                      const SizedBox(width: 12),
+                      // Returned Orders button
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => context.push('/painter/orders?tab=returned'),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.grey.shade200),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.assignment_return_rounded,
+                                      color: Color(0xFF7C3AED), size: 20),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Returned',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      Text(
+                                        '${returnedOrders.length} orders',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          color: AppColors.textLight,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
-                  // Orders list
-                  if (orders.isEmpty)
+                  const SizedBox(height: 20),
+
+                  // Recent Orders preview (top 2 orders only) with "View All"
+                  if (activeOrders.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Recent Orders',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => context.push('/painter/orders'),
+                          child: Text(
+                            'View All (${activeOrders.length})',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...activeOrders.take(2).map((order) => _orderCard(order)),
+                  ] else if (orders.isEmpty) ...[
                     Container(
-                      height: 300,
+                      padding: const EdgeInsets.symmetric(vertical: 40),
                       alignment: Alignment.center,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.receipt_long_rounded,
-                              size: 64, color: Colors.grey.shade300),
-                          const SizedBox(height: 16),
+                              size: 54, color: Colors.grey.shade300),
+                          const SizedBox(height: 12),
                           Text('No orders yet',
                               style: GoogleFonts.poppins(
-                                fontSize: 16,
+                                fontSize: 15,
                                 color: AppColors.textSecondary,
                               )),
                         ],
                       ),
-                    )
-                  else
-                    ...orders.map((order) => _orderCard(order)),
+                    ),
+                  ],
                 ],
               ),
             ),
