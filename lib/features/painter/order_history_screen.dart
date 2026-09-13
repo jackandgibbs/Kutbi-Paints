@@ -41,8 +41,8 @@ class OrderHistoryScreen extends ConsumerWidget {
     bool isOrderReturned(OrderModel o) => !isOrderDeleted(o) && (o.isReturned || ds.hasApprovedReturnForOrder(o.id) || o.status == 'returned');
     bool isOrderDeletedOrRejected(OrderModel o) => isOrderDeleted(o) || o.isRejected;
 
-    // 1. Completed / In Progress orders: ONLY 'accepted', 'preparing', 'dispatched', 'delivered'
-    const allowedActiveStatuses = {'accepted', 'preparing', 'dispatched', 'delivered'};
+    // 1. Completed / In Progress orders: includes 'placed' (New), 'accepted', 'preparing', 'dispatched', 'delivered'
+    const allowedActiveStatuses = {'placed', 'accepted', 'preparing', 'dispatched', 'delivered'};
     final inProgressOrCompletedOrders = allOrders.where((o) =>
         !isOrderDeleted(o) &&
         !o.isRejected &&
@@ -262,7 +262,7 @@ class OrderHistoryScreen extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
-                                effectiveStatus.toUpperCase(),
+                                effectiveStatus == 'placed' ? 'NEW' : effectiveStatus.toUpperCase(),
                                 style: GoogleFonts.poppins(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,

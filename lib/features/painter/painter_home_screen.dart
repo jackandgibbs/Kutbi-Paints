@@ -1036,7 +1036,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                effectiveStatus.toUpperCase(),
+                effectiveStatus == 'placed' ? 'NEW' : effectiveStatus.toUpperCase(),
                 style: GoogleFonts.poppins(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -1085,7 +1085,7 @@ class _PainterHomeScreenState extends ConsumerState<PainterHomeScreen>
     bool isOrderReturned(dynamic o) => !isOrderDeleted(o) && (o.isReturned == true || ds.hasApprovedReturnForOrder(o.id) || o.status == 'returned');
     bool isOrderDeletedOrRejected(dynamic o) => isOrderDeleted(o) || o.isRejected == true;
 
-    const allowedActiveStatuses = {'accepted', 'preparing', 'dispatched', 'delivered'};
+    const allowedActiveStatuses = {'placed', 'accepted', 'preparing', 'dispatched', 'delivered'};
     final activeOrders = orders.where((o) =>
         !isOrderDeleted(o) &&
         o.isRejected != true &&

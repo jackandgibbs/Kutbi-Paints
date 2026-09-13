@@ -2071,12 +2071,23 @@ class DataService extends ChangeNotifier {
     required double discountAmount,
     required String status,
     required DateTime orderDate,
+    String? billImageUrl,
   }) async {
-    final orderId = (existingOrderId != null && existingOrderId.isNotEmpty)
+    // Determine orderId: check existingOrderId, or match existing order by Invoice reference
+    String orderId = (existingOrderId != null && existingOrderId.isNotEmpty)
         ? existingOrderId
-        : _uuid.v4();
+        : '';
+    if (orderId.isEmpty && invoiceNumber != null && invoiceNumber.isNotEmpty) {
+      final existing = _orders.where((o) => o.siteLocation == 'Invoice #$invoiceNumber').firstOrNull;
+      if (existing != null) {
+        orderId = existing.id;
+      }
+    }
+    if (orderId.isEmpty) {
+      orderId = _uuid.v4();
+    }
 
-    // If painterId is empty or walkin, attempt to resolve from registered users by phone or name
+    // Resolve effectivePainterId
     String effectivePainterId = painterId;
     final cleanPhone = painterPhone.replaceAll(RegExp(r'[^0-9]'), '');
     if (effectivePainterId.isEmpty || effectivePainterId.startsWith('walkin_')) {
@@ -2098,11 +2109,26 @@ class DataService extends ChangeNotifier {
       }
     }
 
+    // Check if effectivePainterId is a valid user in _users
+    final registeredUser = _users.where((u) => u.id == effectivePainterId).firstOrNull;
+    if (registeredUser == null) {
+      throw Exception('Selected painter is not a registered user. Please select a registered painter from the dropdown so the order and bill appear in their account.');
+    }
+
+    // Retain existing billImageUrl if not passed
+    String? effectiveBillImageUrl = billImageUrl;
+    if (effectiveBillImageUrl == null || effectiveBillImageUrl.isEmpty) {
+      final prevOrder = _orders.where((o) => o.id == orderId).firstOrNull;
+      if (prevOrder?.billImageUrl != null && prevOrder!.billImageUrl!.isNotEmpty) {
+        effectiveBillImageUrl = prevOrder.billImageUrl;
+      }
+    }
+
     final order = OrderModel(
       id: orderId,
       painterId: effectivePainterId,
-      painterName: painterName,
-      painterPhone: painterPhone,
+      painterName: painterName.isNotEmpty ? painterName : registeredUser.name,
+      painterPhone: painterPhone.isNotEmpty ? painterPhone : registeredUser.phone,
       brand: brand,
       items: items,
       siteLocation: (invoiceNumber != null && invoiceNumber.isNotEmpty)
@@ -2114,6 +2140,7 @@ class DataService extends ChangeNotifier {
       discountAmount: discountAmount,
       status: status,
       paymentStatus: (status == 'delivered' || status == 'returned') ? 'udhaari' : 'pending',
+      billImageUrl: effectiveBillImageUrl,
       createdAt: orderDate,
       updatedAt: DateTime.now(),
     );
@@ -2126,23 +2153,43 @@ class DataService extends ChangeNotifier {
     }
     notifyListeners();
 
+    // Supabase payload with fallback to verified schema columns
+    final safePayload = {
+      'id': order.id,
+      'painter_id': order.painterId,
+      'painter_name': order.painterName,
+      'painter_phone': order.painterPhone,
+      'brand': order.brand,
+      'items': order.items.map((e) => e.toJson()).toList(),
+      'site_location': order.siteLocation,
+      'site_lat': order.siteLat,
+      'site_lng': order.siteLng,
+      'payment_method': order.paymentMethod,
+      'total_amount': order.totalAmount,
+      'status': order.status,
+      'bill_image_url': order.billImageUrl,
+      'payment_status': order.paymentStatus,
+      'paid_amount': order.paidAmount,
+      'udhaari_interest_enabled': order.udhaariInterestEnabled,
+      'udhaari_interest_rate': order.udhaariInterestRate,
+      'udhaari_interest_amount': order.udhaariInterestAmount,
+      'refund_completed': order.refundCompleted,
+      'deleted_by_admin': order.deletedByAdmin,
+      'hide_amount': order.hideAmount,
+      if (order.commission != 0.0) 'commission': order.commission,
+      'created_at': order.createdAt.toIso8601String(),
+      'updated_at': order.updatedAt.toIso8601String(),
+    };
+
     try {
       await _sb.from('orders').upsert(order.toJson());
     } catch (e) {
-      if (e.toString().contains('discount_amount') ||
-          e.toString().contains('subtotal') ||
-          e.toString().contains('PGRST204')) {
-        try {
-          final fallbackJson = order.toJson()
-            ..remove('subtotal')
-            ..remove('discount_amount')
-            ..remove('discount_name');
-          await _sb.from('orders').upsert(fallbackJson);
-        } catch (innerError) {
-          debugPrint('Fallback upsert order failed: $innerError');
-        }
-      } else {
-        debugPrint('Error upserting order from admin invoice: $e');
+      debugPrint('Initial upsert order failed ($e), falling back to safe payload...');
+      try {
+        await _sb.from('orders').upsert(safePayload);
+      } catch (innerError) {
+        debugPrint('Fallback upsert order failed: $innerError');
+        throw Exception('Failed to save order in database: $innerError');
       }
     }
 

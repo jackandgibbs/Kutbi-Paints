@@ -67,7 +67,7 @@ class _AdminGenerateInvoiceScreenState
 
   // Form state
   String _billType = 'purchase'; // 'purchase' or 'return'
-  String _orderStatus = 'accepted'; // 'accepted', 'preparing', 'dispatched', 'delivered'
+  String _orderStatus = 'placed'; // 'placed' (New), 'accepted', 'preparing', 'dispatched', 'delivered'
   String? _editingOrderId;
   String? _selectedPainterId;
   final _painterNameController = TextEditingController();
@@ -157,7 +157,7 @@ class _AdminGenerateInvoiceScreenState
     setState(() {
       _editingInvoiceId = null;
       _editingOrderId = null;
-      _orderStatus = 'accepted';
+      _orderStatus = 'placed';
       _selectedPainterId = null;
       _painterNameController.clear();
       _painterPhoneController.clear();
@@ -182,7 +182,7 @@ class _AdminGenerateInvoiceScreenState
       _editingOrderId = invoice.orderId;
       _orderStatus = (invoice.orderStatus != null && invoice.orderStatus!.isNotEmpty)
           ? invoice.orderStatus!
-          : 'accepted';
+          : 'placed';
       _billType = invoice.billType;
       _selectedPainterId = invoice.painterId;
       _painterNameController.text = invoice.painterName;
@@ -274,11 +274,36 @@ class _AdminGenerateInvoiceScreenState
   }
 
   Future<void> _generateAndPrintBill() async {
+    final ds = ref.read(dataServiceProvider);
+    String painterId = _selectedPainterId ?? '';
     final painterName = _painterNameController.text.trim();
-    if (painterName.isEmpty) {
+    final phone = _painterPhoneController.text.trim();
+    final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
+
+    // Auto-resolve painterId from registered users if not chosen directly from dropdown
+    if (painterId.isEmpty) {
+      if (cleanPhone.isNotEmpty) {
+        final match = ds.users.where((p) {
+          final pClean = p.phone.replaceAll(RegExp(r'[^0-9]'), '');
+          if (pClean.length >= 10 && cleanPhone.length >= 10) {
+            return pClean.substring(pClean.length - 10) == cleanPhone.substring(cleanPhone.length - 10);
+          }
+          return pClean.isNotEmpty && pClean == cleanPhone;
+        }).firstOrNull;
+        if (match != null) painterId = match.id;
+      }
+      if (painterId.isEmpty && painterName.isNotEmpty) {
+        final match = ds.users.where((p) =>
+            !p.isAdmin && p.name.trim().toLowerCase() == painterName.toLowerCase()
+        ).firstOrNull;
+        if (match != null) painterId = match.id;
+      }
+    }
+
+    if (painterId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter or select a painter / customer name'),
+          content: Text('Please select a registered painter before generating the invoice.'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -291,6 +316,16 @@ class _AdminGenerateInvoiceScreenState
     for (final it in _items) {
       final name = it.nameController.text.trim();
       if (name.isNotEmpty) {
+        if (it.quantity <= 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please enter a valid quantity for all items.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
         validItems.add(
           CustomInvoiceItem(
             productName: name,
@@ -328,7 +363,7 @@ class _AdminGenerateInvoiceScreenState
             ? _invoiceNoController.text.trim()
             : 'INV-1001',
         billType: _billType,
-        painterId: _selectedPainterId,
+        painterId: painterId,
         painterName: painterName,
         painterPhone: _painterPhoneController.text.trim(),
         date: _selectedDate,
@@ -341,34 +376,6 @@ class _AdminGenerateInvoiceScreenState
         orderStatus: statusToSave,
         createdAt: DateTime.now(),
       );
-
-      // Save or update order in DataService
-      final ds = ref.read(dataServiceProvider);
-      String painterId = _selectedPainterId ?? '';
-      final phone = _painterPhoneController.text.trim();
-      final cleanPhone = phone.replaceAll(RegExp(r'[^0-9]'), '');
-
-      if (painterId.isEmpty) {
-        if (cleanPhone.isNotEmpty) {
-          final match = ds.users.where((p) {
-            final pClean = p.phone.replaceAll(RegExp(r'[^0-9]'), '');
-            if (pClean.length >= 10 && cleanPhone.length >= 10) {
-              return pClean.substring(pClean.length - 10) == cleanPhone.substring(cleanPhone.length - 10);
-            }
-            return pClean.isNotEmpty && pClean == cleanPhone;
-          }).firstOrNull;
-          if (match != null) painterId = match.id;
-        }
-      }
-      if (painterId.isEmpty && painterName.trim().isNotEmpty) {
-        final match = ds.users.where((p) =>
-            !p.isAdmin && p.name.trim().toLowerCase() == painterName.trim().toLowerCase()
-        ).firstOrNull;
-        if (match != null) painterId = match.id;
-      }
-      if (painterId.isEmpty) {
-        painterId = 'walkin_${painterName.replaceAll(' ', '_')}';
-      }
 
       final orderItems = validItems.map((it) {
         return OrderItemModel(
@@ -395,7 +402,19 @@ class _AdminGenerateInvoiceScreenState
         brand = ds.getAllBrands().first.name;
       }
 
-      await ds.saveOrderFromAdminInvoice(
+      // Generate PDF first
+      final pdfBytes = await BillExportService.generateCustomInvoicePdf(invoice);
+
+      // Attempt to upload PDF to Supabase Storage for multi-device sync
+      String? uploadedPdfUrl;
+      try {
+        uploadedPdfUrl = await ds.uploadBillPdf(orderId, pdfBytes, '${invoice.invoiceNumber}.pdf');
+      } catch (e) {
+        debugPrint('Note: PDF upload to storage skipped or failed: $e');
+      }
+
+      // Save order in DataService & Supabase
+      final savedOrder = await ds.saveOrderFromAdminInvoice(
         existingOrderId: _editingOrderId ?? orderId,
         invoiceNumber: invoice.invoiceNumber,
         painterId: painterId,
@@ -408,18 +427,20 @@ class _AdminGenerateInvoiceScreenState
         discountAmount: _discount,
         status: statusToSave,
         orderDate: _selectedDate,
+        billImageUrl: uploadedPdfUrl,
       );
 
-      // Save or update in service
+      // Save or update in custom invoice service
       final invoiceService = ref.read(customInvoiceServiceProvider);
+      final finalInvoice = invoice.copyWith(
+        orderId: savedOrder.id,
+        orderStatus: savedOrder.status,
+      );
       if (_editingInvoiceId != null) {
-        await invoiceService.updateInvoice(invoice);
+        await invoiceService.updateInvoice(finalInvoice);
       } else {
-        await invoiceService.addInvoice(invoice);
+        await invoiceService.addInvoice(finalInvoice);
       }
-
-      // Generate PDF
-      final pdfBytes = await BillExportService.generateCustomInvoicePdf(invoice);
 
       if (!mounted) return;
 
@@ -439,13 +460,13 @@ class _AdminGenerateInvoiceScreenState
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Invoice ${invoice.invoiceNumber} generated & saved!',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  'Invoice ${invoice.invoiceNumber} & Order #${savedOrder.id.substring(0, 8)} created!\nCustomer: $painterName • Total: ₹${_totalAmount.toStringAsFixed(0)} • Status: ${_billType == 'purchase' ? (_orderStatus == 'placed' ? 'New' : _orderStatus.toUpperCase()) : 'Returned'}',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
               TextButton(
-                onPressed: () => _tabController.animateTo(1),
-                child: const Text('VIEW LIST', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => context.push('/admin/orders'),
+                child: const Text('VIEW ORDERS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -461,7 +482,7 @@ class _AdminGenerateInvoiceScreenState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error generating bill: $e'),
+          content: Text('Error generating bill & order: $e'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -636,24 +657,20 @@ class _AdminGenerateInvoiceScreenState
                             value: _selectedPainterId,
                             isExpanded: true,
                             decoration: _inputDecoration(
-                              labelText: 'Select Registered Painter (Optional)',
+                              labelText: 'Select Registered Painter *',
                               prefixIcon: Icons.badge_outlined,
                             ),
                             hint: Text(
-                              'Choose from ${ds.users.where((u) => !u.isAdmin).length} registered users',
+                              'Choose from ${ds.users.where((u) => !u.isAdmin).length} registered painters',
                               style: GoogleFonts.inter(fontSize: 13, color: AppColors.textSlateLight),
                             ),
                             items: [
-                              const DropdownMenuItem<String>(
-                                value: null,
-                                child: Text('Custom / Walk-in Customer'),
-                              ),
                               ...ds.users.where((u) => !u.isAdmin).map((p) => DropdownMenuItem<String>(
                                     value: p.id,
                                     child: Text(
                                       '${p.name} (${p.phone})',
                                       overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(fontSize: 13),
+                                      style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
                                     ),
                                   )),
                             ],
@@ -741,12 +758,17 @@ class _AdminGenerateInvoiceScreenState
                     if (_billType == 'purchase') ...[
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String>(
-                        initialValue: _orderStatus,
+                        // ignore: deprecated_member_use
+                        value: _orderStatus,
                         decoration: _inputDecoration(
-                          labelText: 'Status',
+                          labelText: 'Initial Order Status',
                           prefixIcon: Icons.local_shipping_outlined,
                         ),
                         items: const [
+                          DropdownMenuItem(
+                            value: 'placed',
+                            child: Text('New (Placed)'),
+                          ),
                           DropdownMenuItem(
                             value: 'accepted',
                             child: Text('Accepted'),
