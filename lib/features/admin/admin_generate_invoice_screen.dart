@@ -561,6 +561,71 @@ class _AdminGenerateInvoiceScreenState
     );
   }
 
+  void _openPainterSearchDialog(List<UserModel> painters) async {
+    final result = await showDialog<_PainterSelectionResult>(
+      context: context,
+      builder: (ctx) => _PainterSearchDialog(
+        painters: painters,
+        selectedPainterId: _selectedPainterId,
+      ),
+    );
+
+    if (result != null) {
+      if (result.isClear) {
+        setState(() {
+          _selectedPainterId = null;
+        });
+      } else if (result.painter != null) {
+        setState(() {
+          _selectedPainterId = result.painter!.id;
+          _painterNameController.text = result.painter!.name;
+          _painterPhoneController.text = result.painter!.phone;
+        });
+      }
+    }
+  }
+
+  void _selectProductForItem(_ItemRowController item, ProductModel? prod) {
+    setState(() {
+      item.selectedProduct = prod;
+      if (prod != null) {
+        item.nameController.text = prod.name;
+        if (prod.colorCode.isNotEmpty) {
+          item.shadeController.text = prod.colorCode;
+        } else if (prod.colorName.isNotEmpty) {
+          item.shadeController.text = prod.colorName;
+        }
+        if (prod.bucketSizes.isNotEmpty) {
+          item.sizeController.text = prod.bucketSizes.first;
+          final price = prod.prices[prod.bucketSizes.first] ?? 0.0;
+          if (price > 0) {
+            item.rateController.text = price.toStringAsFixed(0);
+          }
+        }
+      }
+    });
+  }
+
+  void _openProductSearchDialog(_ItemRowController item, List<ProductModel> products) async {
+    final result = await showDialog<_ProductSelectionResult>(
+      context: context,
+      builder: (ctx) => _ProductSearchDialog(
+        products: products,
+        selectedProductId: item.selectedProduct?.id,
+      ),
+    );
+
+    if (result != null) {
+      if (result.isClear) {
+        setState(() {
+          item.selectedProduct = null;
+        });
+      } else if (result.product != null) {
+        _selectProductForItem(item, result.product);
+      }
+    }
+  }
+
   // ===========================================================================
   // TAB 1: CREATE INVOICE FORM
   // ===========================================================================
@@ -654,7 +719,9 @@ class _AdminGenerateInvoiceScreenState
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             // ignore: deprecated_member_use
-                            value: _selectedPainterId,
+                            value: (ds.users.any((u) => !u.isAdmin && u.id == _selectedPainterId))
+                                ? _selectedPainterId
+                                : null,
                             isExpanded: true,
                             decoration: _inputDecoration(
                               labelText: 'Select Registered Painter *',
@@ -686,6 +753,30 @@ class _AdminGenerateInvoiceScreenState
                                 }
                               });
                             },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Search Registered Painters',
+                          child: InkWell(
+                            onTap: () => _openPainterSearchDialog(
+                              ds.users.where((u) => !u.isAdmin).toList(),
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              height: 48,
+                              width: 48,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF97316).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.3)),
+                              ),
+                              child: const Icon(
+                                Icons.person_search_rounded,
+                                color: Color(0xFFF97316),
+                                size: 22,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1056,7 +1147,9 @@ class _AdminGenerateInvoiceScreenState
               Expanded(
                 child: DropdownButtonFormField<ProductModel?>(
                   // ignore: deprecated_member_use
-                  value: item.selectedProduct,
+                  value: (item.selectedProduct != null && products.any((p) => p.id == item.selectedProduct!.id))
+                      ? products.firstWhere((p) => p.id == item.selectedProduct!.id)
+                      : null,
                   isExpanded: true,
                   decoration: _inputDecoration(
                     labelText: 'Select From Catalog (Optional)',
@@ -1077,26 +1170,29 @@ class _AdminGenerateInvoiceScreenState
                           ),
                         )),
                   ],
-                  onChanged: (prod) {
-                    setState(() {
-                      item.selectedProduct = prod;
-                      if (prod != null) {
-                        item.nameController.text = prod.name;
-                        if (prod.colorCode.isNotEmpty) {
-                          item.shadeController.text = prod.colorCode;
-                        } else if (prod.colorName.isNotEmpty) {
-                          item.shadeController.text = prod.colorName;
-                        }
-                        if (prod.bucketSizes.isNotEmpty) {
-                          item.sizeController.text = prod.bucketSizes.first;
-                          final price = prod.prices[prod.bucketSizes.first] ?? 0.0;
-                          if (price > 0) {
-                            item.rateController.text = price.toStringAsFixed(0);
-                          }
-                        }
-                      }
-                    });
-                  },
+                  onChanged: (prod) => _selectProductForItem(item, prod),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Search Catalog Products',
+                child: InkWell(
+                  onTap: () => _openProductSearchDialog(item, products),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    height: 48,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF97316).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.3)),
+                    ),
+                    child: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFFF97316),
+                      size: 22,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -2338,6 +2434,809 @@ class _AdminGenerateInvoiceScreenState
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: Color(0xFFF97316), width: 1.5),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// PAINTER SEARCH DIALOG
+// =============================================================================
+class _PainterSelectionResult {
+  final bool isClear;
+  final UserModel? painter;
+
+  const _PainterSelectionResult.select(this.painter) : isClear = false;
+  const _PainterSelectionResult.clear() : isClear = true, painter = null;
+}
+
+class _PainterSearchDialog extends StatefulWidget {
+  final List<UserModel> painters;
+  final String? selectedPainterId;
+
+  const _PainterSearchDialog({
+    required this.painters,
+    this.selectedPainterId,
+  });
+
+  @override
+  State<_PainterSearchDialog> createState() => _PainterSearchDialogState();
+}
+
+class _PainterSearchDialogState extends State<_PainterSearchDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<UserModel> get _filteredPainters {
+    final q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.painters;
+    return widget.painters.where((p) {
+      final name = p.name.toLowerCase();
+      final phone = p.phone.toLowerCase();
+      final email = p.email.toLowerCase();
+      final business = (p.businessName ?? '').toLowerCase();
+      return name.contains(q) || phone.contains(q) || email.contains(q) || business.contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredPainters;
+
+    return Dialog(
+      backgroundColor: AppColors.adminCardBg,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540, maxHeight: 620),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF97316).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person_search_rounded, color: Color(0xFFF97316), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Search Painters',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSlate,
+                          ),
+                        ),
+                        Text(
+                          '${widget.painters.length} registered painters available',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.textSlateLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.textSlateLight),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.adminBorder),
+
+            // Search input
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search by name, phone number, or business...',
+                  hintStyle: GoogleFonts.inter(fontSize: 13, color: AppColors.textSlateLight),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSlateLight, size: 20),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.adminBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.adminBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFF97316), width: 1.5),
+                  ),
+                ),
+                style: GoogleFonts.inter(fontSize: 14),
+                onChanged: (val) => setState(() => _query = val),
+              ),
+            ),
+
+            // Sub-bar with results count & manual option
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${filtered.length} ${filtered.length == 1 ? 'painter' : 'painters'} found',
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSlateLight),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, const _PainterSelectionResult.clear()),
+                    icon: const Icon(Icons.person_off_outlined, size: 15, color: Color(0xFF0284C7)),
+                    label: Text(
+                      'Manual / Clear',
+                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+
+            // Results List
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.person_off_rounded, size: 44, color: AppColors.textSlateLight),
+                            const SizedBox(height: 10),
+                            Text(
+                              'No painters found for "$_query"',
+                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textSlate),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'You can enter customer details manually instead.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSlateLight),
+                            ),
+                            const SizedBox(height: 14),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context, const _PainterSelectionResult.clear()),
+                              icon: const Icon(Icons.edit_note_rounded, size: 16),
+                              label: const Text('Enter Details Manually'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.textSlate,
+                                side: const BorderSide(color: AppColors.adminBorder),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+                      itemBuilder: (context, index) {
+                        final p = filtered[index];
+                        final isSelected = p.id == widget.selectedPainterId;
+
+                        return InkWell(
+                          onTap: () => Navigator.pop(context, _PainterSelectionResult.select(p)),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFF97316).withValues(alpha: 0.08) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: isSelected
+                                  ? Border.all(color: const Color(0xFFF97316).withValues(alpha: 0.3))
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                // Avatar
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: p.isGold
+                                      ? const Color(0xFFFEF3C7)
+                                      : const Color(0xFFE2E8F0),
+                                  child: Text(
+                                    p.name.isNotEmpty ? p.name[0].toUpperCase() : '?',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w700,
+                                      color: p.isGold ? const Color(0xFFD97706) : AppColors.textSlate,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Name, phone, business
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              p.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textSlate,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (p.isGold) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFEF3C7),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: const Color(0xFFF59E0B)),
+                                              ),
+                                              child: Text(
+                                                'GOLD',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: const Color(0xFFB45309),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.phone_outlined, size: 13, color: AppColors.textSlateLight),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            p.phone,
+                                            style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSlateLight),
+                                          ),
+                                          if (p.businessName != null && p.businessName!.trim().isNotEmpty) ...[
+                                            const SizedBox(width: 8),
+                                            const Text('•', style: TextStyle(fontSize: 10, color: AppColors.textSlateLight)),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                p.businessName!,
+                                                style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSlateLight),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Points & Selection check
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if (p.points > 0)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFECFDF5),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '★ ${p.points} pts',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF059669),
+                                          ),
+                                        ),
+                                      ),
+                                    if (isSelected)
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 4),
+                                        child: Icon(Icons.check_circle_rounded, color: Color(0xFFF97316), size: 18),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// PRODUCT SEARCH DIALOG
+// =============================================================================
+class _ProductSelectionResult {
+  final bool isClear;
+  final ProductModel? product;
+
+  const _ProductSelectionResult.select(this.product) : isClear = false;
+  const _ProductSelectionResult.clear() : isClear = true, product = null;
+}
+
+class _ProductSearchDialog extends StatefulWidget {
+  final List<ProductModel> products;
+  final String? selectedProductId;
+
+  const _ProductSearchDialog({
+    required this.products,
+    this.selectedProductId,
+  });
+
+  @override
+  State<_ProductSearchDialog> createState() => _ProductSearchDialogState();
+}
+
+class _ProductSearchDialogState extends State<_ProductSearchDialog> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+  String _selectedBrand = 'All';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<String> get _brands {
+    final set = <String>{'All'};
+    for (final p in widget.products) {
+      if (p.brand.trim().isNotEmpty) set.add(p.brand.trim());
+    }
+    return set.toList();
+  }
+
+  List<ProductModel> get _filteredProducts {
+    final q = _query.trim().toLowerCase();
+    return widget.products.where((p) {
+      if (_selectedBrand != 'All' && p.brand != _selectedBrand) {
+        return false;
+      }
+      if (q.isEmpty) return true;
+      final name = p.name.toLowerCase();
+      final code = p.colorCode.toLowerCase();
+      final colorName = p.colorName.toLowerCase();
+      final cat = p.category.toLowerCase();
+      final sub = p.subCategory.toLowerCase();
+      final brand = p.brand.toLowerCase();
+      return name.contains(q) ||
+          code.contains(q) ||
+          colorName.contains(q) ||
+          cat.contains(q) ||
+          sub.contains(q) ||
+          brand.contains(q);
+    }).toList();
+  }
+
+  Color? _parseColor(String hex) {
+    var cleaned = hex.replaceAll('#', '').trim();
+    if (cleaned.length == 6) cleaned = 'FF$cleaned';
+    if (cleaned.length == 8) {
+      final val = int.tryParse(cleaned, radix: 16);
+      if (val != null) return Color(val);
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _filteredProducts;
+    final brands = _brands;
+
+    return Dialog(
+      backgroundColor: AppColors.adminCardBg,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 620, maxHeight: 680),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.format_paint_rounded, color: Color(0xFF0284C7), size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Search Catalog Products',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textSlate,
+                          ),
+                        ),
+                        Text(
+                          '${widget.products.length} products available across brands',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: AppColors.textSlateLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: AppColors.textSlateLight),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: AppColors.adminBorder),
+
+            // Brand Filter Chips
+            if (brands.length > 1)
+              Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: brands.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final brand = brands[i];
+                    final isSelected = _selectedBrand == brand;
+                    final brandColor = brand == 'All'
+                        ? const Color(0xFF0284C7)
+                        : AppColors.getBrandPrimary(brand);
+
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedBrand = brand),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? brandColor.withValues(alpha: 0.15)
+                              : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected ? brandColor : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          brand,
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? brandColor : AppColors.textSlate,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+            // Search input
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search by product name, shade, code, category...',
+                  hintStyle: GoogleFonts.inter(fontSize: 13, color: AppColors.textSlateLight),
+                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSlateLight, size: 20),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.adminBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.adminBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                  ),
+                ),
+                style: GoogleFonts.inter(fontSize: 14),
+                onChanged: (val) => setState(() => _query = val),
+              ),
+            ),
+
+            // Counter & Custom Product Button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${filtered.length} ${filtered.length == 1 ? 'product' : 'products'} found',
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSlateLight),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, const _ProductSelectionResult.clear()),
+                    icon: const Icon(Icons.edit_note_rounded, size: 15, color: Color(0xFF0284C7)),
+                    label: Text(
+                      'Custom / Other Product',
+                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0284C7)),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+
+            // Results List
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.search_off_rounded, size: 44, color: AppColors.textSlateLight),
+                            const SizedBox(height: 10),
+                            Text(
+                              'No products found matching "$_query"',
+                              style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textSlate),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'You can enter this product manually on the invoice.',
+                              style: GoogleFonts.inter(fontSize: 12, color: AppColors.textSlateLight),
+                            ),
+                            const SizedBox(height: 14),
+                            OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context, const _ProductSelectionResult.clear()),
+                              icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                              label: const Text('Use Custom Product'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.textSlate,
+                                side: const BorderSide(color: AppColors.adminBorder),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+                      itemBuilder: (context, index) {
+                        final p = filtered[index];
+                        final isSelected = p.id == widget.selectedProductId;
+                        final swatchColor = _parseColor(p.colorHex);
+                        final brandColor = AppColors.getBrandPrimary(p.brand);
+
+                        // Calculate starting price
+                        double? minPrice;
+                        if (p.prices.isNotEmpty) {
+                          minPrice = p.prices.values.reduce((a, b) => a < b ? a : b);
+                        }
+
+                        return InkWell(
+                          onTap: () => Navigator.pop(context, _ProductSelectionResult.select(p)),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF0284C7).withValues(alpha: 0.08) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              border: isSelected
+                                  ? Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3))
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                // Thumbnail / Swatch
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: swatchColor ?? brandColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: swatchColor != null
+                                          ? Colors.black.withValues(alpha: 0.15)
+                                          : brandColor.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: swatchColor == null
+                                      ? Icon(Icons.format_paint_outlined, color: brandColor, size: 20)
+                                      : null,
+                                ),
+                                const SizedBox(width: 12),
+                                // Name & brand & sizes
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              p.name,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.textSlate,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (p.colorCode.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF1F5F9),
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: AppColors.adminBorder),
+                                              ),
+                                              child: Text(
+                                                p.colorCode,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppColors.textSlate,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          // Brand badge
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: brandColor.withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              p.brand,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: brandColor,
+                                              ),
+                                            ),
+                                          ),
+                                          if (p.category.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              '•  ${p.category}',
+                                              style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSlateLight),
+                                            ),
+                                          ],
+                                          if (p.bucketSizes.isNotEmpty) ...[
+                                            const SizedBox(width: 6),
+                                            Flexible(
+                                              child: Text(
+                                                '(${p.bucketSizes.join(', ')})',
+                                                style: GoogleFonts.inter(fontSize: 11, color: AppColors.textSlateLight),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Price & Selection check
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if (minPrice != null && minPrice > 0)
+                                      Text(
+                                        '₹${minPrice.toStringAsFixed(0)}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textSlate,
+                                        ),
+                                      ),
+                                    if (isSelected)
+                                      const Padding(
+                                        padding: EdgeInsets.only(top: 4),
+                                        child: Icon(Icons.check_circle_rounded, color: Color(0xFF0284C7), size: 18),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
