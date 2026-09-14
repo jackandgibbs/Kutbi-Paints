@@ -436,12 +436,9 @@ class BillExportService {
               // Footer
               pw.Divider(color: PdfColors.grey400),
               pw.SizedBox(height: 8),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Kutbi Paints — Returns & Refunds', style: pw.TextStyle(font: boldFont, fontSize: 10)),
-                  pw.Text('Authorized Signature', style: pw.TextStyle(font: font, fontSize: 10)),
-                ],
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text('Authorized Signature', style: pw.TextStyle(font: font, fontSize: 10)),
               ),
             ],
           );
@@ -681,12 +678,9 @@ class BillExportService {
               // Bottom signature
               pw.Divider(color: PdfColors.grey400),
               pw.SizedBox(height: 6),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text('Kutbi Paints — Dahod', style: pw.TextStyle(font: boldFont, fontSize: 10)),
-                  pw.Text('Authorized Signature', style: pw.TextStyle(font: font, fontSize: 10)),
-                ],
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text('Authorized Signature', style: pw.TextStyle(font: font, fontSize: 10)),
               ),
             ],
           );
